@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Javi</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <span class="dot" id="status-dot" title="Checking connection..."></span>
+    <span class="brand">JAVI</span>
+    <button
+      type="button"
+      class="camera-toggle-btn"
+      id="camera-monitor-toggle"
+      title="Toggle background camera monitoring"
+    >
+      <span class="dot" id="camera-monitor-dot" title="Camera monitoring: off"></span>
+      CAM
+    </button>
+  </header>
+
+  <div class="hero">
+    <button class="jarvis-orb" id="jarvis-orb" title="Say 'Javi' to talk to him — click to mute/unmute" aria-label="Say Javi to talk to him — click to mute or unmute">
+      <span class="orb-bloom"></span>
+      <span class="orb-ticks"></span>
+      <span class="orb-scan"></span>
+      <span class="orb-ring-dashed"></span>
+      <span class="orb-ring"></span>
+      <span class="orb-ring orb-ring-2"></span>
+      <span class="orb-core"></span>
+      <span class="orb-core-shine"></span>
+    </button>
+    <div class="hud-frame">
+      <div class="jarvis-clock" id="jarvis-clock">00:00:00</div>
+      <div class="jarvis-state" id="jarvis-state">STANDBY</div>
+    </div>
+    <div class="waveform" id="jarvis-waveform" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <div class="jarvis-caption" id="jarvis-caption"></div>
+  </div>
+
+  <div id="camera-panel" class="camera-panel" hidden>
+    <img id="camera-feed-img" class="camera-feed-img" alt="Live camera feed" />
+    <div id="camera-detections-list" class="camera-detections-list"></div>
+  </div>
+
+  <div id="approval-container" class="approval-container"></div>
+  <div id="admin-pending-container" class="approval-container admin-pending-container"></div>
+
+  <div id="access-gate" class="access-gate" hidden>
+    <div class="access-gate-box">
+      <div class="access-gate-label">ACCESS CODE REQUIRED</div>
+      <div class="access-gate-hint">Find it printed in the terminal where Javi is running.</div>
+      <input
+        type="text"
+        id="access-code-input"
+        placeholder="Enter code"
+        autocomplete="off"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
+        inputmode="text"
+      />
+      <button type="button" id="access-code-submit">Unlock</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

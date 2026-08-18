@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+*.db
+.access_code
+
+# LoRA training pipeline — large generated model artifacts, never source
+training/.venv-train/
+training/models/

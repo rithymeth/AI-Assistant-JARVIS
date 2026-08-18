@@ -1,0 +1,24 @@
+# Isolated on purpose — this is NOT merged into the app's top-level
+# requirements.txt. Training runs in WSL2 (Ubuntu), never in the Windows
+# venv that runs the FastAPI server: bitsandbytes' 4-bit quantization
+# (required for QLoRA on a 4GB VRAM budget) has materially weaker Windows
+# support than Linux. Install inside WSL2 with:
+#
+#   python3 -m venv .venv-train && source .venv-train/bin/activate
+#   pip install -r training/requirements-train.txt
+#
+# torch is intentionally unpinned to a specific CUDA build here — install it
+# first, matching your WSL2 NVIDIA driver's CUDA version, per
+# https://pytorch.org/get-started/locally/ (e.g.
+# `pip install torch --index-url https://download.pytorch.org/whl/cu121`),
+# THEN install the rest of this file so pip doesn't pull a CPU-only wheel.
+
+transformers==4.47.1
+peft==0.14.0
+trl==0.13.0
+datasets==3.2.0
+accelerate==1.2.1
+bitsandbytes==0.45.0
+huggingface_hub==0.27.0
+sentencepiece==0.2.0
+protobuf==5.29.2

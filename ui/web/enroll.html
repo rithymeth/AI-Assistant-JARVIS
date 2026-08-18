@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Javi — Face Enrollment</title>
+<link rel="stylesheet" href="style.css" />
+<style>
+  /* Deliberately minimal, separate from the main voice UI (index.html) —
+     this is an admin-only, loopback-only utility page, not something meant
+     to be reached from a phone or over the LAN (the server rejects
+     /auth/face/enroll outright for any non-loopback caller regardless). */
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    margin: 0;
+  }
+  .enroll-box {
+    background: var(--panel);
+    border: 1px solid var(--border-bright);
+    border-radius: 8px;
+    padding: 28px;
+    max-width: 420px;
+    width: 90%;
+  }
+  .enroll-title {
+    color: var(--accent);
+    font-size: 15px;
+    letter-spacing: 2px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .enroll-hint {
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 18px;
+  }
+  video, canvas {
+    width: 100%;
+    border-radius: 6px;
+    border: 1px solid var(--border-bright);
+    background: #000;
+    margin-bottom: 14px;
+  }
+  canvas[hidden], video[hidden] {
+    display: none;
+  }
+  select, button {
+    width: 100%;
+    padding: 10px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+  select {
+    background: #0d1113;
+    color: var(--text);
+    border: 1px solid var(--border-bright);
+  }
+  button {
+    border: none;
+    cursor: pointer;
+    background: var(--accent);
+    color: #001417;
+    letter-spacing: 1px;
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  #enroll-status {
+    color: var(--text);
+    font-size: 13px;
+    min-height: 18px;
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+<div class="enroll-box">
+  <div class="enroll-title">FACE ENROLLMENT</div>
+  <div class="enroll-hint">
+    Loopback only — this page only works when run on this machine itself. Pick the
+    user this face should unlock as a second factor, then capture a clear,
+    well-lit photo. You can enroll more than one photo per user (different
+    angles/lighting all count as a match).
+  </div>
+
+  <select id="user-select"><option value="">Loading users...</option></select>
+  <video id="preview-video" autoplay muted playsinline></video>
+  <canvas id="preview-canvas" hidden></canvas>
+
+  <button id="start-btn" type="button">Start Camera</button>
+  <button id="capture-btn" type="button" hidden>Capture &amp; Enroll</button>
+  <button id="retake-btn" type="button" hidden>Retake</button>
+
+  <div id="enroll-status"></div>
+</div>
+
+<script>
+  const userSelect = document.getElementById("user-select");
+  const video = document.getElementById("preview-video");
+  const canvas = document.getElementById("preview-canvas");
+  const startBtn = document.getElementById("start-btn");
+  const captureBtn = document.getElementById("capture-btn");
+  const retakeBtn = document.getElementById("retake-btn");
+  const statusEl = document.getElementById("enroll-status");
+
+  let stream = null;
+
+  function setStatus(text) {
+    statusEl.textContent = text;
+  }
+
+  async function loadUsers() {
+    try {
+      const res = await fetch("/auth/users");
+      if (!res.ok) {
+        setStatus(`Could not load users (${res.status}). This page only works from the machine Javi runs on.`);
+        return;
+      }
+      const data = await res.json();
+      userSelect.innerHTML = (data.users || [])
+        .map((u) => `<option value="${u.id}">${u.username} (${u.role})</option>`)
+        .join("");
+    } catch {
+      setStatus("Could not reach Javi's server.");
+    }
+  }
+
+  startBtn.addEventListener("click", async () => {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video.srcObject = stream;
+      video.hidden = false;
+      canvas.hidden = true;
+      startBtn.hidden = true;
+      captureBtn.hidden = false;
+      retakeBtn.hidden = true;
+      setStatus("");
+    } catch {
+      setStatus("Could not access the camera.");
+    }
+  });
+
+  retakeBtn.addEventListener("click", () => {
+    video.hidden = false;
+    canvas.hidden = true;
+    captureBtn.hidden = false;
+    retakeBtn.hidden = true;
+    captureBtn.textContent = "Capture & Enroll";
+    captureBtn.disabled = false;
+  });
+
+  captureBtn.addEventListener("click", async () => {
+    const userId = userSelect.value;
+    if (!userId) {
+      setStatus("Pick a user first.");
+      return;
+    }
+    captureBtn.disabled = true;
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+    video.hidden = true;
+    canvas.hidden = false;
+
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+    const form = new FormData();
+    form.append("user_id", userId);
+    form.append("photo", blob, "enroll.jpg");
+
+    setStatus("Enrolling...");
+    try {
+      const res = await fetch("/auth/face/enroll", { method: "POST", body: form });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setStatus(`Enrolled for user #${data.user_id}. You can capture another angle, or close this page.`);
+      } else {
+        setStatus(`Failed: ${data.detail || res.status}`);
+      }
+    } catch {
+      setStatus("Could not reach Javi's server.");
+    }
+
+    captureBtn.hidden = true;
+    retakeBtn.hidden = false;
+    captureBtn.disabled = false;
+  });
+
+  loadUsers();
+</script>
+</body>
+</html>
