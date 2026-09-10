@@ -1,29 +1,4 @@
-from tools.automation import click_at, press_key, type_text
-from tools.file_system import list_any_dir, list_dir, read_any_file, read_file, write_any_file, write_file
-from tools.notes import add_note, clear_list, list_notes, remove_note
-from tools.pc_control import close_app, focus_window, list_windows, open_app, take_screenshot
-from tools.preferences import forget_preference, recall_preferences, remember_preference
-from tools.process_control import kill_process, list_processes
-from tools.reminders import cancel_reminder, list_reminders, set_reminder
-from tools.shell import run_command
-from tools.system_control import (
-    cancel_shutdown,
-    lock_screen,
-    mute_volume,
-    restart_pc,
-    set_brightness,
-    set_volume,
-    shutdown_pc,
-    sleep_pc,
-    toggle_wifi,
-)
-from tools.system_status import get_system_status
-from tools.weather import get_weather
-from tools.web_fetch import fetch_page
-from tools.web_search import web_search
-from tools.worldclock import get_time_in
-from vision.camera import describe_camera
-from vision.screen import describe_screen
+import importlib
 
 # Full-machine control, added on explicit request: "I want Javi to have
 # full control if I told him to" — every single one of these still goes
@@ -69,49 +44,54 @@ INFORMATIONAL_TOOLS = {
     "get_system_status",
 }
 
+
+def _call(module_name: str, function_name: str, *args, **kwargs):
+    module = importlib.import_module(module_name)
+    return getattr(module, function_name)(*args, **kwargs)
+
 HANDLERS = {
-    "read_file": lambda args: read_file(args["path"]),
-    "write_file": lambda args: write_file(args["path"], args["content"]),
-    "list_dir": lambda args: list_dir(args.get("path", ".")),
-    "run_command": lambda args: run_command(args["command"]),
-    "web_search": lambda args: web_search(args["query"]),
-    "get_weather": lambda args: get_weather(args.get("location")),
-    "get_time_in": lambda args: get_time_in(args["location"]),
-    "get_system_status": lambda args: get_system_status(),
-    "fetch_page": lambda args: fetch_page(args["url"]),
-    "open_app": lambda args: open_app(args["name"]),
-    "close_app": lambda args: close_app(args["title"]),
-    "focus_window": lambda args: focus_window(args["title"]),
-    "list_windows": lambda args: list_windows(),
-    "describe_screen": lambda args: describe_screen(),
-    "describe_camera": lambda args: describe_camera(),
-    "click_at": lambda args: click_at(int(args["x"]), int(args["y"])),
-    "type_text": lambda args: type_text(args["text"]),
-    "press_key": lambda args: press_key(args["key"]),
-    "set_volume": lambda args: set_volume(int(args["level"])),
-    "mute_volume": lambda args: mute_volume(bool(args["mute"])),
-    "set_brightness": lambda args: set_brightness(int(args["level"])),
-    "lock_screen": lambda args: lock_screen(),
-    "sleep_pc": lambda args: sleep_pc(),
-    "shutdown_pc": lambda args: shutdown_pc(int(args.get("delay_seconds", 30))),
-    "restart_pc": lambda args: restart_pc(int(args.get("delay_seconds", 30))),
-    "cancel_shutdown": lambda args: cancel_shutdown(),
-    "toggle_wifi": lambda args: toggle_wifi(bool(args["enabled"])),
-    "list_processes": lambda args: list_processes(),
-    "kill_process": lambda args: kill_process(args["name_or_pid"]),
-    "read_any_file": lambda args: read_any_file(args["path"]),
-    "write_any_file": lambda args: write_any_file(args["path"], args["content"]),
-    "list_any_dir": lambda args: list_any_dir(args["path"]),
-    "remember_preference": lambda args: remember_preference(args["text"]),
-    "recall_preferences": lambda args: recall_preferences(),
-    "forget_preference": lambda args: forget_preference(args["text_or_id"]),
-    "set_reminder": lambda args: set_reminder(args["text"], args.get("delay_minutes"), args.get("at_time")),
-    "list_reminders": lambda args: list_reminders(),
-    "cancel_reminder": lambda args: cancel_reminder(args["text_or_id"]),
-    "add_note": lambda args: add_note(args["text"], args.get("list_name", "general")),
-    "list_notes": lambda args: list_notes(args.get("list_name")),
-    "remove_note": lambda args: remove_note(args["text_or_id"], args.get("list_name")),
-    "clear_list": lambda args: clear_list(args["list_name"]),
+    "read_file": lambda args: _call("tools.file_system", "read_file", args["path"]),
+    "write_file": lambda args: _call("tools.file_system", "write_file", args["path"], args["content"]),
+    "list_dir": lambda args: _call("tools.file_system", "list_dir", args.get("path", ".")),
+    "run_command": lambda args: _call("tools.shell", "run_command", args["command"]),
+    "web_search": lambda args: _call("tools.web_search", "web_search", args["query"]),
+    "get_weather": lambda args: _call("tools.weather", "get_weather", args.get("location")),
+    "get_time_in": lambda args: _call("tools.worldclock", "get_time_in", args["location"]),
+    "get_system_status": lambda args: _call("tools.system_status", "get_system_status"),
+    "fetch_page": lambda args: _call("tools.web_fetch", "fetch_page", args["url"]),
+    "open_app": lambda args: _call("tools.pc_control", "open_app", args["name"]),
+    "close_app": lambda args: _call("tools.pc_control", "close_app", args["title"]),
+    "focus_window": lambda args: _call("tools.pc_control", "focus_window", args["title"]),
+    "list_windows": lambda args: _call("tools.pc_control", "list_windows"),
+    "describe_screen": lambda args: _call("vision.screen", "describe_screen"),
+    "describe_camera": lambda args: _call("vision.camera", "describe_camera"),
+    "click_at": lambda args: _call("tools.automation", "click_at", int(args["x"]), int(args["y"])),
+    "type_text": lambda args: _call("tools.automation", "type_text", args["text"]),
+    "press_key": lambda args: _call("tools.automation", "press_key", args["key"]),
+    "set_volume": lambda args: _call("tools.system_control", "set_volume", int(args["level"])),
+    "mute_volume": lambda args: _call("tools.system_control", "mute_volume", bool(args["mute"])),
+    "set_brightness": lambda args: _call("tools.system_control", "set_brightness", int(args["level"])),
+    "lock_screen": lambda args: _call("tools.system_control", "lock_screen"),
+    "sleep_pc": lambda args: _call("tools.system_control", "sleep_pc"),
+    "shutdown_pc": lambda args: _call("tools.system_control", "shutdown_pc", int(args.get("delay_seconds", 30))),
+    "restart_pc": lambda args: _call("tools.system_control", "restart_pc", int(args.get("delay_seconds", 30))),
+    "cancel_shutdown": lambda args: _call("tools.system_control", "cancel_shutdown"),
+    "toggle_wifi": lambda args: _call("tools.system_control", "toggle_wifi", bool(args["enabled"])),
+    "list_processes": lambda args: _call("tools.process_control", "list_processes"),
+    "kill_process": lambda args: _call("tools.process_control", "kill_process", args["name_or_pid"]),
+    "read_any_file": lambda args: _call("tools.file_system", "read_any_file", args["path"]),
+    "write_any_file": lambda args: _call("tools.file_system", "write_any_file", args["path"], args["content"]),
+    "list_any_dir": lambda args: _call("tools.file_system", "list_any_dir", args["path"]),
+    "remember_preference": lambda args: _call("tools.preferences", "remember_preference", args["text"]),
+    "recall_preferences": lambda args: _call("tools.preferences", "recall_preferences"),
+    "forget_preference": lambda args: _call("tools.preferences", "forget_preference", args["text_or_id"]),
+    "set_reminder": lambda args: _call("tools.reminders", "set_reminder", args["text"], args.get("delay_minutes"), args.get("at_time")),
+    "list_reminders": lambda args: _call("tools.reminders", "list_reminders"),
+    "cancel_reminder": lambda args: _call("tools.reminders", "cancel_reminder", args["text_or_id"]),
+    "add_note": lambda args: _call("tools.notes", "add_note", args["text"], args.get("list_name", "general")),
+    "list_notes": lambda args: _call("tools.notes", "list_notes", args.get("list_name")),
+    "remove_note": lambda args: _call("tools.notes", "remove_note", args["text_or_id"], args.get("list_name")),
+    "clear_list": lambda args: _call("tools.notes", "clear_list", args["list_name"]),
 }
 
 # Human-readable one-liners for pending (approval-required) tool calls, spoken
