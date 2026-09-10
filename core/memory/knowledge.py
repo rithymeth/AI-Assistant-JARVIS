@@ -73,6 +73,11 @@ def _dedupe_ranked_rows(rows: list[dict], k: int) -> list[str]:
     return docs
 
 
+def _embedding_for(text: str) -> list[float]:
+    vector = get_embedder().encode(text)
+    return vector.tolist() if hasattr(vector, "tolist") else list(vector)
+
+
 def remember_fact(lookup_key: str, content: str, fact_type: str = FACT_TYPE_TOOL_LOOKUP) -> None:
     """lookup_key identifies a distinct thing looked up (e.g. a tool name +
     its args) — NOT the result content. Repeating the same lookup upserts
@@ -83,7 +88,7 @@ def remember_fact(lookup_key: str, content: str, fact_type: str = FACT_TYPE_TOOL
     to an existing entry (see SEMANTIC_DEDUP_DISTANCE above) also merges
     into that entry rather than creating a near-duplicate."""
     content = content[:MAX_FACT_CHARS]
-    embedding = get_embedder().encode(content).tolist()
+    embedding = _embedding_for(content)
     target_id = _lookup_id(lookup_key)
     collection = _collection()
 
@@ -92,7 +97,7 @@ def remember_fact(lookup_key: str, content: str, fact_type: str = FACT_TYPE_TOOL
             query_embeddings=[embedding],
             n_results=1,
             where={"fact_type": fact_type},
-            include=["ids", "distances"],
+            include=["distances"],
         )
         nearest_ids = nearest.get("ids", [[]])[0]
         nearest_distances = nearest.get("distances", [[]])[0]
@@ -122,7 +127,7 @@ def recall_facts(
     if collection.count() == 0:
         return []
     cutoff_ts = (datetime.now(timezone.utc) - timedelta(days=max_age_days)).timestamp()
-    embedding = get_embedder().encode(query).tolist()
+    embedding = _embedding_for(query)
     results = collection.query(
         query_embeddings=[embedding],
         n_results=min(max(k * 4, k), MAX_QUERY_CANDIDATES, collection.count()),

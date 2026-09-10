@@ -38,8 +38,13 @@ def _score(distance: float | None, created_at_ts: float | None) -> float:
     return distance - (freshness * 0.08)
 
 
+def _embedding_for(text: str) -> list[float]:
+    vector = get_embedder().encode(text)
+    return vector.tolist() if hasattr(vector, "tolist") else list(vector)
+
+
 def add_memory(session_id: str, text: str, memory_type: str = MEMORY_TYPE_CONVERSATION) -> None:
-    embedding = get_embedder().encode(text).tolist()
+    embedding = _embedding_for(text)
     _collection().add(
         ids=[str(uuid.uuid4())],
         embeddings=[embedding],
@@ -63,7 +68,7 @@ def search_memories(
     collection = _collection()
     if collection.count() == 0:
         return []
-    embedding = get_embedder().encode(query).tolist()
+    embedding = _embedding_for(query)
     results = collection.query(
         query_embeddings=[embedding],
         n_results=min(max(k * 4, k), MAX_QUERY_CANDIDATES, collection.count()),

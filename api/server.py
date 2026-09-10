@@ -3,8 +3,8 @@ import json
 import os
 import sqlite3
 import tempfile
+from typing import Any
 
-import numpy as np
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -238,7 +238,7 @@ def auth_create_user(req: CreateUserRequest, request: Request):
     return {"id": user_id, "username": username, "role": req.role, "code": code}
 
 
-def _embed_uploaded_photo(raw_bytes: bytes, filename: str | None) -> np.ndarray:
+def _embed_uploaded_photo(raw_bytes: bytes, filename: str | None) -> Any:
     from core.auth.face import NoFaceDetected, embed_face
 
     suffix = os.path.splitext(filename or "")[1] or ".jpg"
@@ -256,6 +256,8 @@ def _embed_uploaded_photo(raw_bytes: bytes, filename: str | None) -> np.ndarray:
 
 @app.post("/auth/face/enroll")
 async def face_enroll(request: Request, user_id: int = Form(...), photo: UploadFile = File(...)):
+    import numpy as np
+
     # Independent of the code gate above (which /auth/ already goes
     # through) — enrollment is rejected for any non-loopback caller
     # outright, even one holding a perfectly valid code, since this is the
@@ -269,6 +271,7 @@ async def face_enroll(request: Request, user_id: int = Form(...), photo: UploadF
 
 @app.post("/auth/face/verify")
 async def face_verify(request: Request, photo: UploadFile = File(...)):
+    import numpy as np
     from core.auth.face import is_match
 
     user = _current_user(request)
