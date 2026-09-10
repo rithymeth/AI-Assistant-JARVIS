@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -72,6 +73,21 @@ CREATE TABLE IF NOT EXISTS notes (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_notes_list ON notes(list_name);
+
+CREATE TABLE IF NOT EXISTS pending_actions (
+    action_id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    user_message TEXT NOT NULL,
+    messages_json TEXT NOT NULL,
+    tool_name TEXT NOT NULL,
+    tool_args_json TEXT NOT NULL,
+    requester_id INTEGER NOT NULL,
+    requester_username TEXT NOT NULL,
+    requester_role TEXT NOT NULL,
+    requires_admin INTEGER NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_pending_actions_session ON pending_actions(session_id);
 """
 
 
@@ -299,3 +315,90 @@ def clear_list(list_name: str) -> int:
     with _connect() as conn:
         cur = conn.execute("DELETE FROM notes WHERE list_name = ?", (list_name,))
         return cur.rowcount
+
+
+def upsert_pending_action(
+    action_id: str,
+    session_id: str,
+    user_message: str,
+    messages: list[dict],
+    tool_name: str,
+    tool_args: dict,
+    requester,
+    requires_admin: bool,
+) -> None:
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO pending_actions
+            (action_id, session_id, user_message, messages_json, tool_name, tool_args_json,
+             requester_id, requester_username, requester_role, requires_admin, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                action_id,
+                session_id,
+                user_message,
+                json.dumps(messages, default=str),
+                tool_name,
+                json.dumps(tool_args, default=str),
+                requester.id,
+                requester.username,
+                requester.role,
+                1 if requires_admin else 0,
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+
+
+def get_pending_action(action_id: str) -> dict | None:
+    with _connect() as conn:
+        row = conn.execute(
+            """
+            SELECT action_id, session_id, user_message, messages_json, tool_name, tool_args_json,
+                   requester_id, requester_username, requester_role, requires_admin, created_at
+            FROM pending_actions
+            WHERE action_id = ?
+            """,
+            (action_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    return {
+        "action_id": row[0],
+        "session_id": row[1],
+        "user_message": row[2],
+        "messages": json.loads(row[3]),
+        "tool_call": {"function": {"name": row[4], "arguments": json.loads(row[5])}},
+        "requester": {"id": row[6], "username": row[7], "role": row[8]},
+        "requires_admin": bool(row[9]),
+        "created_at": row[10],
+    }
+
+
+def delete_pending_action(action_id: str) -> bool:
+    with _connect() as conn:
+        cur = conn.execute("DELETE FROM pending_actions WHERE action_id = ?", (action_id,))
+        return cur.rowcount > 0
+
+
+def list_pending_actions() -> list[dict]:
+    with _connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT action_id, session_id, tool_name, tool_args_json, requester_username, requires_admin
+            FROM pending_actions
+            ORDER BY created_at ASC
+            """
+        ).fetchall()
+    return [
+        {
+            "action_id": row[0],
+            "session_id": row[1],
+            "tool": row[2],
+            "args": json.loads(row[3]),
+            "requested_by": row[4],
+            "requires_admin": bool(row[5]),
+        }
+        for row in rows
+    ]

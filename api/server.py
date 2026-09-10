@@ -3,15 +3,14 @@ import json
 import os
 import sqlite3
 import tempfile
+from typing import Any
 
-import numpy as np
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from config.settings import BASE_DIR, MODEL_NAME
-from core.auth.face import NoFaceDetected, embed_face, is_match
 from core.auth.face_sessions import create_session, verify_session
 from core.auth.users import LOOPBACK_USER, User, generate_code, hash_new_code
 from core.brain.agent import handle_message, list_pending_actions, resume_after_approval
@@ -27,11 +26,6 @@ from core.memory.store import (
     list_due_undelivered_reminders,
     list_users,
 )
-from vision.camera_monitor import get_status, start_monitor, stop_monitor
-from vision.camera_stream import get_latest_detections, mjpeg_frames
-from vision.describe import analyze_image
-from voice.stt import transcribe
-from voice.tts import speak_to_file
 
 app = FastAPI(title="Javi")
 
@@ -244,7 +238,9 @@ def auth_create_user(req: CreateUserRequest, request: Request):
     return {"id": user_id, "username": username, "role": req.role, "code": code}
 
 
-def _embed_uploaded_photo(raw_bytes: bytes, filename: str | None) -> np.ndarray:
+def _embed_uploaded_photo(raw_bytes: bytes, filename: str | None) -> Any:
+    from core.auth.face import NoFaceDetected, embed_face
+
     suffix = os.path.splitext(filename or "")[1] or ".jpg"
     fd, tmp_path = tempfile.mkstemp(suffix=suffix)
     try:
@@ -260,6 +256,8 @@ def _embed_uploaded_photo(raw_bytes: bytes, filename: str | None) -> np.ndarray:
 
 @app.post("/auth/face/enroll")
 async def face_enroll(request: Request, user_id: int = Form(...), photo: UploadFile = File(...)):
+    import numpy as np
+
     # Independent of the code gate above (which /auth/ already goes
     # through) — enrollment is rejected for any non-loopback caller
     # outright, even one holding a perfectly valid code, since this is the
@@ -273,6 +271,9 @@ async def face_enroll(request: Request, user_id: int = Form(...), photo: UploadF
 
 @app.post("/auth/face/verify")
 async def face_verify(request: Request, photo: UploadFile = File(...)):
+    import numpy as np
+    from core.auth.face import is_match
+
     user = _current_user(request)
     embedding = _embed_uploaded_photo(await photo.read(), photo.filename)
     enrolled = [np.frombuffer(b, dtype=np.float32) for b in get_face_embeddings(user.id)]
@@ -283,6 +284,8 @@ async def face_verify(request: Request, photo: UploadFile = File(...)):
 
 @app.post("/vision/analyze")
 async def vision_analyze(image: UploadFile):
+    from vision.describe import analyze_image
+
     suffix = os.path.splitext(image.filename or "")[1] or ".jpg"
     fd, tmp_path = tempfile.mkstemp(suffix=suffix)
     try:
@@ -295,22 +298,30 @@ async def vision_analyze(image: UploadFile):
 
 @app.post("/vision/camera/monitor/start")
 def camera_monitor_start(req: MonitorStartRequest):
+    from vision.camera_monitor import start_monitor
+
     kwargs = {"interval_s": req.interval_s} if req.interval_s else {}
     return start_monitor(**kwargs)
 
 
 @app.post("/vision/camera/monitor/stop")
 def camera_monitor_stop():
+    from vision.camera_monitor import stop_monitor
+
     return stop_monitor()
 
 
 @app.get("/vision/camera/monitor/status")
 def camera_monitor_status():
+    from vision.camera_monitor import get_status
+
     return get_status()
 
 
 @app.get("/vision/camera/stream")
 def camera_stream():
+    from vision.camera_stream import mjpeg_frames
+
     return StreamingResponse(
         mjpeg_frames(), media_type="multipart/x-mixed-replace; boundary=frame"
     )
@@ -318,11 +329,15 @@ def camera_stream():
 
 @app.get("/vision/camera/detections")
 def camera_detections():
+    from vision.camera_stream import get_latest_detections
+
     return {"detections": get_latest_detections()}
 
 
 @app.post("/voice/transcribe")
 async def voice_transcribe(audio: UploadFile):
+    from voice.stt import transcribe
+
     suffix = os.path.splitext(audio.filename or "")[1] or ".webm"
     fd, tmp_path = tempfile.mkstemp(suffix=suffix)
     try:
@@ -335,6 +350,8 @@ async def voice_transcribe(audio: UploadFile):
 
 @app.post("/voice/speak")
 def voice_speak(req: SpeakRequest, background_tasks: BackgroundTasks):
+    from voice.tts import speak_to_file
+
     fd, tmp_path = tempfile.mkstemp(suffix=".wav")
     os.close(fd)
     speak_to_file(req.text, tmp_path)
