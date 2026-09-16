@@ -15,11 +15,12 @@ from core.brain.llm import chat_once, stream_chat
 from core.memory.knowledge import recall_facts, remember_fact
 from core.memory.store import add_message, get_history, list_preferences
 from core.memory.vector_store import add_memory, search_memories
-from tools.registry import APPROVAL_REQUIRED, INFORMATIONAL_TOOLS, TOOL_SCHEMAS, describe_pending, execute_tool
+from tools.registry import APPROVAL_REQUIRED, INFORMATIONAL_TOOLS, TOOL_SCHEMAS, describe_pending, execute_tool, parse_tool_arguments
 
 SYSTEM_PROMPT = BASE_SYSTEM_PROMPT
+TOOL_SCHEMAS_NAMES = {schema["function"]["name"] for schema in TOOL_SCHEMAS}
 
-MAX_TOOL_ITERATIONS = 5
+MAX_TOOL_ITERATIONS = 8
 RECENT_HISTORY_LIMIT = 10  # messages; older context relies on vector recall instead
 MAX_INJECTED_PREFERENCES = 30  # most recent — a sanity cap, not expected to bite in normal use
 
@@ -116,8 +117,18 @@ def _agent_loop(session_id: str, user_message: str, messages: list, requester: U
 
         for call in tool_calls:
             name = call.function.name
-            args = dict(call.function.arguments)
-            call_dict = {"function": {"name": name, "arguments": args}}
+            try:
+                args = parse_tool_arguments(getattr(call.function, "arguments", None))
+            except Exception as e:
+                err = f"Could not parse arguments for {name}: {e}"
+                yield {"type": "tool_result", "tool": name, "result": err}
+                messages.append({"role": "tool", "content": err})
+                continue
+            if name not in TOOL_SCHEMAS_NAMES:
+                err = f"Unknown tool: {name}"
+                yield {"type": "tool_result", "tool": name, "result": err}
+                messages.append({"role": "tool", "content": err})
+                continue
 
             if name in APPROVAL_REQUIRED:
                 action_id = str(uuid.uuid4())
