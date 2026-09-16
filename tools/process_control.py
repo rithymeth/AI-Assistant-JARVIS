@@ -1,8 +1,5 @@
 import psutil
 
-# Killing these can bluescreen or hard-crash the OS outright, not just
-# misbehave — unlike anything else this tool set touches, that's
-# unrecoverable, so it's blocked even under approval.
 PROTECTED_PROCESS_NAMES = {
     "system",
     "system idle process",
@@ -18,9 +15,15 @@ PROTECTED_PROCESS_NAMES = {
     "kthreadd",
     "launchd",
 }
+MAX_LISTED_PROCESSES = 25
 
 
-def list_processes() -> list[dict]:
+def list_processes(limit: int = MAX_LISTED_PROCESSES) -> list[dict]:
+    try:
+        limit = int(limit)
+    except (TypeError, ValueError):
+        limit = MAX_LISTED_PROCESSES
+    limit = max(1, min(limit, 50))
     processes = []
     for p in psutil.process_iter(["pid", "name", "memory_info"]):
         try:
@@ -34,7 +37,7 @@ def list_processes() -> list[dict]:
             )
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
-    return sorted(processes, key=lambda p: p["memory_mb"] or 0, reverse=True)
+    return sorted(processes, key=lambda p: p["memory_mb"] or 0, reverse=True)[:limit]
 
 
 def kill_process(name_or_pid: str) -> str:
