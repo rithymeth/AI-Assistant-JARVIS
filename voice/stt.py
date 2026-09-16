@@ -1,23 +1,24 @@
-from faster_whisper import WhisperModel
+import os
 
 _model = None
 
 
 def _get_model():
-    # CUDA requires the full CUDA/cuBLAS toolkit, not just a GPU driver, and
-    # ctranslate2 only discovers a missing toolkit at first inference (not at
-    # construction), so a try/except around WhisperModel() alone can't catch it.
-    # CPU int8 is reliable everywhere and plenty fast for the "base" model.
     global _model
     if _model is None:
+        from faster_whisper import WhisperModel
+
         _model = WhisperModel("base", device="cpu", compute_type="int8")
     return _model
 
 
 def transcribe(audio_path: str) -> str:
-    if not audio_path:
+    path = (audio_path or "").strip()
+    if not path:
         raise ValueError("No audio path given")
+    if not os.path.exists(path):
+        raise ValueError(f"Audio file not found: {path}")
     model = _get_model()
-    segments, _info = model.transcribe(audio_path)
+    segments, _info = model.transcribe(path)
     text = " ".join(segment.text.strip() for segment in segments).strip()
     return text or "(no speech detected)"
