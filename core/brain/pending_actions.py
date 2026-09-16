@@ -5,14 +5,19 @@ from core.memory.store import (
     list_pending_actions as list_pending_action_rows,
     upsert_pending_action,
 )
-from tools.registry import describe_pending
+from tools.registry import describe_pending, parse_tool_arguments
 
 
 def normalize_tool_call(call) -> dict:
+    raw_args = getattr(call.function, "arguments", None)
+    try:
+        args = parse_tool_arguments(raw_args)
+    except Exception:
+        args = raw_args if isinstance(raw_args, dict) else {}
     return {
         "function": {
             "name": call.function.name,
-            "arguments": dict(call.function.arguments),
+            "arguments": args,
         }
     }
 
