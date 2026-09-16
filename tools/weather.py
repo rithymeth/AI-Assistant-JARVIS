@@ -36,23 +36,26 @@ def get_weather(location: str | None = None) -> dict:
         )
 
     place = geocode(location)
-    resp = requests.get(
-        FORECAST_URL,
-        params={
-            "latitude": place["latitude"],
-            "longitude": place["longitude"],
-            "current": "temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m",
-            "daily": "temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max",
-            "temperature_unit": "celsius",
-            "wind_speed_unit": "kmh",
-            "precipitation_unit": "mm",
-            "timezone": "auto",
-            "forecast_days": 1,
-        },
-        timeout=TIMEOUT_SECONDS,
-    )
-    resp.raise_for_status()
-    data = resp.json()
+    try:
+        resp = requests.get(
+            FORECAST_URL,
+            params={
+                "latitude": place["latitude"],
+                "longitude": place["longitude"],
+                "current": "temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m",
+                "daily": "temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max",
+                "temperature_unit": "celsius",
+                "wind_speed_unit": "kmh",
+                "precipitation_unit": "mm",
+                "timezone": "auto",
+                "forecast_days": 1,
+            },
+            timeout=TIMEOUT_SECONDS,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except requests.RequestException as exc:
+        raise RuntimeError(f"Weather lookup failed: {exc}") from exc
     current = data["current"]
     daily = data["daily"]
 

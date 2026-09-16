@@ -24,4 +24,6 @@ insightface==1.0.1
 onnxruntime==1.23.2
 pycaw==20251023; sys_platform == "win32"
 screen_brightness_control==0.27.2
+psutil==7.1.0
+pillow==11.3.0
 tzdata==2026.3
