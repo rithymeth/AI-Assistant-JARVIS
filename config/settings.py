@@ -16,6 +16,7 @@ OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 MODEL_NAME = os.getenv("MODEL_NAME", "llama3.2:3b")
 VISION_MODEL_NAME = os.getenv("VISION_MODEL_NAME", "moondream")
 PORT = int(os.getenv("PORT", "8000"))
+HOST = os.getenv("HOST", "0.0.0.0")
 DB_PATH = os.getenv("DB_PATH", str(BASE_DIR / "javi.db"))
 
 
