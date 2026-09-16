@@ -2,10 +2,7 @@ import psutil
 
 # Killing these can bluescreen or hard-crash the OS outright, not just
 # misbehave — unlike anything else this tool set touches, that's
-# unrecoverable, so it's blocked even under approval (same defense-in-depth
-# reasoning as open_app's shell-metacharacter rejection: a single
-# misheard/misinterpreted voice command shouldn't be able to take the whole
-# machine down with zero chance to undo it).
+# unrecoverable, so it's blocked even under approval.
 PROTECTED_PROCESS_NAMES = {
     "system",
     "system idle process",
@@ -15,6 +12,11 @@ PROTECTED_PROCESS_NAMES = {
     "services.exe",
     "lsass.exe",
     "smss.exe",
+    "init",
+    "systemd",
+    "kernel",
+    "kthreadd",
+    "launchd",
 }
 
 
@@ -31,7 +33,7 @@ def list_processes() -> list[dict]:
                 }
             )
         except (psutil.NoSuchProcess, psutil.AccessDenied):
-            continue  # process exited or is unqueryable mid-scan — not an error, just skip it
+            continue
     return sorted(processes, key=lambda p: p["memory_mb"] or 0, reverse=True)
 
 

@@ -20,8 +20,8 @@ class RegistryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_tool_arguments("[1, 2]")
 
-    def test_execute_unknown_tool_raises_keyerror(self):
-        with self.assertRaises(KeyError):
+    def test_execute_unknown_tool_raises_valueerror(self):
+        with self.assertRaisesRegex(ValueError, "Unknown tool"):
             execute_tool("not_a_real_tool", {})
 
 

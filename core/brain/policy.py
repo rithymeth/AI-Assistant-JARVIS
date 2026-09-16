@@ -32,7 +32,7 @@ LIVE_DATA_POLICY = (
     "for any weather question instead of answering from your own knowledge, since you don't "
     "actually know today's weather. Omit location only if the user clearly means 'here'/'today' "
     "with no city named and a default is configured; otherwise ask which city if none was given. "
-    "get_time_in returns the real current time and date for a named city (DST-aware) — call it "
+    "get_time_in returns the real current time and date. Pass a city, or omit location for this machine — call it "
     "for ANY 'what time is it in X' / 'what time is it there' question. You do not have a live "
     "clock and do not actually know the current time anywhere, including this machine's own "
     "timezone, so never state a specific time without calling this tool first. "
@@ -118,4 +118,3 @@ BASE_SYSTEM_PROMPT = "\n\n".join(
         ANSWER_POLICY,
     ]
 )
-

@@ -43,6 +43,8 @@ ollama pull llama3.2:3b
 ollama pull moondream
 ```
 
+YOLOv8 nano weights (`yolov8n.pt`) are downloaded by Ultralytics on first camera detect if they are not already on disk. They are no longer committed to the repo.
+
 ## Run
 
 Browser UI:

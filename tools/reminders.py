@@ -2,17 +2,15 @@ from datetime import datetime, timedelta, timezone
 
 from core.memory.store import cancel_reminder as _cancel_reminder
 from core.memory.store import create_reminder, list_pending_reminders
+from tools.worldclock import format_local_clock
 
-# Small local models are unreliable at absolute date/time arithmetic (a
-# well-documented weak point throughout this project) — so the tool takes
-# the SIMPLEST possible inputs (a relative delay, or a bare clock time) and
-# all actual arithmetic happens here in Python, not in the model's head.
+# Small local models are unreliable at absolute date/time arithmetic —
+# the tool takes a relative delay or a bare clock time and does the math here.
 _AT_TIME_FORMATS = ("%H:%M", "%I:%M %p", "%I:%M%p", "%I %p")
 
 
 def _resolve_at_time(at_time: str) -> datetime:
-    """'HH:MM' (24h) or '3:00 PM' style -> the next future occurrence of
-    that clock time (today if it hasn't happened yet, otherwise tomorrow)."""
+    """HH:MM or 3:00 PM -> next future occurrence of that clock time."""
     text = at_time.strip()
     parsed_time = None
     for fmt in _AT_TIME_FORMATS:
@@ -43,10 +41,8 @@ def set_reminder(text: str, delay_minutes: int | None = None, at_time: str | Non
         due = _resolve_at_time(at_time).astimezone(timezone.utc)
 
     create_reminder(text.strip(), due.isoformat())
-    local_due = due.astimezone()
-    # %#I (not %-I) — Windows' strftime uses a different no-leading-zero
-    # flag than Linux/macOS; this project only runs on Windows.
-    return f"Reminder set for {local_due.strftime('%#I:%M %p')}: {text.strip()}"
+    clock = format_local_clock(due.astimezone())
+    return f"Reminder set for {clock['time']}: {text.strip()}"
 
 
 def list_reminders() -> list[dict]:
@@ -54,8 +50,6 @@ def list_reminders() -> list[dict]:
 
 
 def cancel_reminder(text_or_id: str) -> str:
-    """Accepts a numeric reminder id or a substring of the reminder text —
-    same UX pattern as forget_preference/kill_process/close_app."""
     count = _cancel_reminder(text_or_id)
     if count == 0:
         return f"No pending reminder matches '{text_or_id}'"
