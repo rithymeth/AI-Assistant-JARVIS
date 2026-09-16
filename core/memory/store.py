@@ -1,9 +1,8 @@
 import json
-import sqlite3
-from contextlib import contextmanager
 from datetime import datetime, timezone
 
 from config.settings import ACCESS_CODE, DB_PATH
+from core.memory.db import connect as _connect
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS messages (
@@ -32,25 +31,12 @@ CREATE TABLE IF NOT EXISTS face_embeddings (
 );
 CREATE INDEX IF NOT EXISTS idx_face_embeddings_user ON face_embeddings(user_id);
 
--- Standing behavioral instructions/corrections ("always keep replies short",
--- "call me boss", a correction after Javi got something wrong) — distinct
--- from core/memory/knowledge.py's javi_knowledge (looked-up FACTS, recalled
--- by semantic similarity to the current message). Preferences are few,
--- durable, and meant to apply UNCONDITIONALLY, so they're injected into
--- every conversation's context in full rather than semantically retrieved.
 CREATE TABLE IF NOT EXISTS preferences (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     text TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
 
--- Global (not per-session/per-user) — this is a single-household assistant,
--- and "remind me" naturally means "tell whoever's listening when it's
--- due," not "only the browser tab that set it." due_at/created_at are UTC
--- ISO strings, matching every other timestamp in this file. delivered is
--- set once /reminders/due has actually returned it, so a reminder fires
--- exactly once even if multiple clients are polling concurrently (see
--- list_due_undelivered_reminders below, which marks-and-returns atomically).
 CREATE TABLE IF NOT EXISTS reminders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     text TEXT NOT NULL,
@@ -60,12 +46,6 @@ CREATE TABLE IF NOT EXISTS reminders (
 );
 CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(due_at) WHERE delivered = 0;
 
--- Persistent named lists (shopping list, to-do list, whatever the user
--- calls it) — global like reminders/preferences above, for the same
--- single-household reason. Distinct from preferences (behavioral
--- instructions Javi follows) and reminders (time-triggered) — this is
--- just plain content the user wants to keep track of, recalled only when
--- asked, never injected unconditionally.
 CREATE TABLE IF NOT EXISTS notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     list_name TEXT NOT NULL DEFAULT 'general',
@@ -91,16 +71,6 @@ CREATE INDEX IF NOT EXISTS idx_pending_actions_session ON pending_actions(sessio
 """
 
 
-@contextmanager
-def _connect():
-    conn = sqlite3.connect(DB_PATH)
-    try:
-        yield conn
-        conn.commit()
-    finally:
-        conn.close()
-
-
 def init_db():
     with _connect() as conn:
         conn.executescript(_SCHEMA)
@@ -108,10 +78,6 @@ def init_db():
 
 
 def _ensure_bootstrap_admin():
-    """First boot after adding multi-user support: if the users table is
-    empty, create a bootstrap admin whose code is the existing single-user
-    ACCESS_CODE (persisted in .access_code / .env), so a phone that already
-    has that code saved doesn't get locked out by this upgrade."""
     from core.auth.users import hash_new_code
 
     with _connect() as conn:
@@ -127,6 +93,9 @@ def _ensure_bootstrap_admin():
 
 
 def add_message(session_id: str, role: str, content: str) -> None:
+    session_id = (session_id or "").strip() or "default"
+    if content is None or not str(content):
+        return
     with _connect() as conn:
         conn.execute(
             "INSERT INTO messages (session_id, role, content, created_at) VALUES (?, ?, ?, ?)",
@@ -186,10 +155,6 @@ def has_face_embeddings(user_id: int) -> bool:
 
 
 def find_user_by_code(code: str) -> dict | None:
-    """Linear scan verifying `code` against every stored hash — codes are
-    salted per-user, so there's no indexable lookup by code value. Fine at
-    the user counts this is meant for (a handful of household/team accounts,
-    not a multi-tenant SaaS)."""
     from core.auth.users import verify_code
 
     if not code:
@@ -243,11 +208,6 @@ def list_pending_reminders() -> list[dict]:
 
 
 def list_due_undelivered_reminders() -> list[dict]:
-    """Atomically marks-and-returns every undelivered reminder whose due_at
-    has passed, within one connection/transaction — so a reminder fires
-    exactly once even if it's polled from more than one client around the
-    same moment, rather than a plain SELECT-then-UPDATE racing across two
-    separate connections."""
     now = datetime.now(timezone.utc).isoformat()
     with _connect() as conn:
         rows = conn.execute(
