@@ -15,7 +15,8 @@ from core.brain.llm import chat_once, stream_chat
 from core.memory.knowledge import recall_facts, remember_fact
 from core.memory.store import add_message, get_history, list_preferences
 from core.memory.vector_store import add_memory, search_memories
-from tools.registry import APPROVAL_REQUIRED, INFORMATIONAL_TOOLS, TOOL_SCHEMAS, describe_pending, execute_tool, parse_tool_arguments
+from tools.arguments import parse_tool_arguments
+from tools.registry import APPROVAL_REQUIRED, INFORMATIONAL_TOOLS, TOOL_SCHEMAS, describe_pending, execute_tool
 
 SYSTEM_PROMPT = BASE_SYSTEM_PROMPT
 TOOL_SCHEMAS_NAMES = {schema["function"]["name"] for schema in TOOL_SCHEMAS}
@@ -32,10 +33,6 @@ def handle_message(session_id: str, user_message: str, requester: User | None = 
 
     system_content = SYSTEM_PROMPT
 
-    # Unlike memories/facts below, preferences are injected in FULL and
-    # unconditionally, every turn — they're standing instructions (a
-    # correction, "always"/"never" do X, what to call the user), not
-    # something to use only if relevant to the current message.
     preferences = list_preferences()[-MAX_INJECTED_PREFERENCES:]
     if preferences:
         system_content += (
@@ -74,11 +71,6 @@ def resume_after_approval(action_id: str, approved: bool, approver: User | None 
         yield {"type": "error", "message": "Unknown or already-resolved action_id"}
         return
     if pending["requires_admin"] and not approver.is_admin:
-        # The self-approval enforcement point: a standard user's own
-        # approval-gated request was flagged requires_admin when it was
-        # created (see _agent_loop below), and only an admin (or the person
-        # at the keyboard, who is always the synthetic admin user) may
-        # resolve it — not the original requester approving themselves.
         yield {"type": "error", "message": "This action requires admin approval."}
         return
     remove_pending_action(action_id)
