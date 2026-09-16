@@ -5,7 +5,8 @@ from core.memory.store import (
     list_pending_actions as list_pending_action_rows,
     upsert_pending_action,
 )
-from tools.registry import describe_pending, parse_tool_arguments
+from tools.arguments import parse_tool_arguments
+from tools.registry import describe_pending
 
 
 def normalize_tool_call(call) -> dict:
