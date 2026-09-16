@@ -22,12 +22,18 @@ SYSTEM_PROMPT = BASE_SYSTEM_PROMPT
 TOOL_SCHEMAS_NAMES = {schema["function"]["name"] for schema in TOOL_SCHEMAS}
 
 MAX_TOOL_ITERATIONS = 8
-RECENT_HISTORY_LIMIT = 10  # messages; older context relies on vector recall instead
-MAX_INJECTED_PREFERENCES = 30  # most recent — a sanity cap, not expected to bite in normal use
+RECENT_HISTORY_LIMIT = 10
+MAX_INJECTED_PREFERENCES = 30
 
 
 def handle_message(session_id: str, user_message: str, requester: User | None = None) -> Iterator[dict]:
     requester = requester or LOOPBACK_USER
+    session_id = (session_id or "").strip() or "default"
+    user_message = (user_message or "").strip()
+    if not user_message:
+        yield {"type": "error", "message": "Message is empty"}
+        yield {"type": "done"}
+        return
     add_message(session_id, "user", user_message)
     recent_history = get_history(session_id)[-RECENT_HISTORY_LIMIT:]
 
