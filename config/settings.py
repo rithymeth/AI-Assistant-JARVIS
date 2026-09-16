@@ -63,3 +63,4 @@ NOTIFY_EMAIL = os.getenv("NOTIFY_EMAIL", "")
 # the weather" without naming a place. Blank by default — the tool then
 # requires a location be given each time rather than silently guessing one.
 WEATHER_LOCATION = os.getenv("WEATHER_LOCATION", "")
+CAMERA_INDEX = int(os.getenv("CAMERA_INDEX", "0"))
