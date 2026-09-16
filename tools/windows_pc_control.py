@@ -12,7 +12,6 @@ def open_app(name: str) -> str:
     if _UNSAFE_CHARS.search(name):
         raise ValueError(f"Rejected app name with unsafe characters: {name!r}")
     import pythoncom
-    import pygetwindow as gw  # noqa: F401 — imported for parity with window helpers
 
     try:
         pythoncom.CoInitialize()
