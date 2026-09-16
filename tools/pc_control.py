@@ -1,11 +1,12 @@
-from tools._platform import require_windows_capability
+from tools._platform import IS_WINDOWS
 
 
 def _backend():
-    require_windows_capability("Desktop control")
-    from tools import windows_pc_control
-
-    return windows_pc_control
+    if IS_WINDOWS:
+        from tools import windows_pc_control as backend
+    else:
+        from tools import linux_pc_control as backend
+    return backend
 
 
 def open_app(name: str) -> str:

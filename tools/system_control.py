@@ -1,11 +1,12 @@
-from tools._platform import require_windows_capability
+from tools._platform import IS_WINDOWS
 
 
 def _backend():
-    require_windows_capability("System control")
-    from tools import windows_system_control
-
-    return windows_system_control
+    if IS_WINDOWS:
+        from tools import windows_system_control as backend
+    else:
+        from tools import linux_system_control as backend
+    return backend
 
 
 def set_volume(level: int) -> str:
