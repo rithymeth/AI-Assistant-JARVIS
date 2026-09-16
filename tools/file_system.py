@@ -3,9 +3,10 @@ from pathlib import Path
 from config.settings import BASE_DIR
 
 WORKSPACE_DIR = BASE_DIR / "workspace"
-WORKSPACE_DIR.mkdir(exist_ok=True)
+WORKSPACE_DIR.mkdir(parents=True, exist_ok=True)
 
 MAX_READ_CHARS = 50_000
+MAX_LIST_ENTRIES = 80
 
 
 def _clean_path(path: str) -> str:
@@ -20,6 +21,17 @@ def _resolve(rel_path: str) -> Path:
     if not candidate.is_relative_to(WORKSPACE_DIR.resolve()):
         raise ValueError(f"Path '{rel_path}' escapes the workspace sandbox")
     return candidate
+
+
+def cap_dir_entries(entries: list[dict], limit: int = MAX_LIST_ENTRIES) -> list[dict]:
+    try:
+        limit = int(limit)
+    except (TypeError, ValueError):
+        limit = MAX_LIST_ENTRIES
+    limit = max(1, min(limit, MAX_LIST_ENTRIES))
+    if len(entries) <= limit:
+        return entries
+    return entries[:limit] + [{"name": f"...and {len(entries) - limit} more", "type": "truncated", "size": None}]
 
 
 def read_file(path: str) -> str:
@@ -55,7 +67,7 @@ def list_dir(path: str = ".") -> list[dict]:
                 "size": entry.stat().st_size if entry.is_file() else None,
             }
         )
-    return entries
+    return cap_dir_entries(entries)
 
 
 def read_any_file(path: str) -> str:
@@ -94,4 +106,4 @@ def list_any_dir(path: str) -> list[dict]:
             )
         except OSError:
             continue
-    return entries
+    return cap_dir_entries(entries)

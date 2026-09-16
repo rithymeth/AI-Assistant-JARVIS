@@ -1,6 +1,6 @@
 import unittest
 
-from tools.file_system import list_dir, read_file, write_file
+from tools.file_system import cap_dir_entries, list_dir, read_file, write_file
 
 
 class FileSystemTests(unittest.TestCase):
@@ -21,6 +21,12 @@ class FileSystemTests(unittest.TestCase):
             read_file("   ")
         with self.assertRaises(ValueError):
             write_file("", "x")
+
+    def test_dir_listing_is_capped(self):
+        rows = [{"name": str(i), "type": "file", "size": 1} for i in range(120)]
+        capped = cap_dir_entries(rows, limit=80)
+        self.assertEqual(len(capped), 81)
+        self.assertEqual(capped[-1]["type"], "truncated")
 
 
 if __name__ == "__main__":
