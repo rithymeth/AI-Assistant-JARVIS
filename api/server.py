@@ -38,14 +38,12 @@ init_db()
 # (/history shows past conversation content). /health and the static UI
 # shell stay open so the page loads and can show its own code-entry prompt.
 #
-# /voice/* (transcribe, speak) and /vision/analyze are deliberately left
-# ungated: they're audio/image I/O utilities that don't take actions or
-# expose anything sensitive on their own. This matters in practice, not
-# just in theory — standby listening calls /voice/transcribe on every
-# detected sound, gated or not, so leaving it gated meant a stream of 401s
-# from ambient noise alone, each one re-triggering the code prompt and
-# fighting the user's own typing (a real, reported bug — see
-# promptForAccessCode() in app.js for the actual race that caused it).
+# /voice/* (transcribe, speak) stays ungated: standby listening calls
+# /voice/transcribe on every detected sound, gated or not, so leaving it
+# gated meant a stream of 401s from ambient noise alone, each one
+# re-triggering the code prompt (see promptForAccessCode() in app.js).
+# /vision/* IS gated — camera stream/monitor/analyze expose the webcam
+# and screen-adjacent imagery and must not be open on the LAN.
 #
 # RE-ENABLED: multi-user auth (per-user codes + roles, see core/auth/users.py
 # and core/memory/store.py's `users` table) gives the gate something real to
@@ -53,7 +51,7 @@ init_db()
 # pass/fail against one shared secret), and /auth/* needs that resolution to
 # answer "who am I" / manage accounts, so it's gated too. Loopback is and
 # remains fully trusted regardless of this tuple (see _is_loopback_host below).
-GATED_PREFIXES = ("/chat", "/tools/", "/history/", "/auth/", "/reminders/")
+GATED_PREFIXES = ("/chat", "/tools/", "/history/", "/auth/", "/reminders/", "/vision/")
 
 # Exempt from the face-session check below (but NOT from the code check
 # above it) — this is the endpoint a LAN client calls to actually obtain a
@@ -91,9 +89,6 @@ def _is_loopback_host(host: str | None) -> bool:
 async def access_code_gate(request: Request, call_next):
     client_host = request.client.host if request.client else None
     if _is_loopback_host(client_host):
-        # The person at the keyboard already had full control before any of
-        # this existed — represented explicitly now as the synthetic admin
-        # user rather than an implicit bypass.
         request.state.user = LOOPBACK_USER
         return await call_next(request)
     if not request.url.path.startswith(GATED_PREFIXES):
@@ -107,10 +102,6 @@ async def access_code_gate(request: Request, call_next):
         )
     request.state.user = User(id=resolved["id"], username=resolved["username"], role=resolved["role"])
 
-    # Face 2FA is additive, not a replacement — only enforced for a user who
-    # has actually enrolled a face (has_face_embeddings). A user who never
-    # enrolled isn't affected at all, so this can't lock anyone out by
-    # default; it only tightens things for whoever opted in.
     if request.url.path != FACE_VERIFY_PATH and has_face_embeddings(resolved["id"]):
         face_token = request.headers.get("X-Javi-Face-Session") or ""
         if not verify_session(face_token, resolved["id"]):
@@ -199,10 +190,6 @@ def tools_pending(request: Request):
 
 @app.get("/reminders/due")
 def reminders_due():
-    # Marks-and-returns atomically (see list_due_undelivered_reminders) so
-    # a reminder is delivered exactly once even with more than one client
-    # polling — no requester identity needed, reminders are global per the
-    # single-household design (see core/memory/store.py's reminders table).
     return {"due": list_due_undelivered_reminders()}
 
 
@@ -232,9 +219,6 @@ def auth_create_user(req: CreateUserRequest, request: Request):
         user_id = create_user(username, code_hash, code_salt, req.role)
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=400, detail="username already exists")
-    # The generated code is only ever returned here, at creation time — it's
-    # stored as a salted hash from this point on, same as the bootstrap
-    # admin's code, so there's no way to recover it later if it's lost.
     return {"id": user_id, "username": username, "role": req.role, "code": code}
 
 
@@ -258,10 +242,6 @@ def _embed_uploaded_photo(raw_bytes: bytes, filename: str | None) -> Any:
 async def face_enroll(request: Request, user_id: int = Form(...), photo: UploadFile = File(...)):
     import numpy as np
 
-    # Independent of the code gate above (which /auth/ already goes
-    # through) — enrollment is rejected for any non-loopback caller
-    # outright, even one holding a perfectly valid code, since this is the
-    # step that decides whose face counts as a match going forward.
     if not _is_loopback_host(request.client.host if request.client else None):
         raise HTTPException(status_code=403, detail="Face enrollment is only allowed from this machine")
     embedding = _embed_uploaded_photo(await photo.read(), photo.filename)

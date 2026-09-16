@@ -1,3 +1,5 @@
+# Core runtime. Windows-only packages use environment markers so
+# `pip install -r requirements.txt` also works on Linux/macOS.
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
 ollama==0.4.5
@@ -10,8 +12,8 @@ easyocr==1.7.2
 python-multipart==0.0.20
 faster-whisper==1.1.1
 pyttsx3==2.98
-pygetwindow==0.0.9
-pywin32==312
+pygetwindow==0.0.9; sys_platform == "win32"
+pywin32==312; sys_platform == "win32"
 pyautogui==0.9.54
 requests==2.32.3
 beautifulsoup4==4.12.3
@@ -20,6 +22,6 @@ opencv-python==4.10.0.84
 lap==0.5.13
 insightface==1.0.1
 onnxruntime==1.23.2
-pycaw==20251023
+pycaw==20251023; sys_platform == "win32"
 screen_brightness_control==0.27.2
 tzdata==2026.3

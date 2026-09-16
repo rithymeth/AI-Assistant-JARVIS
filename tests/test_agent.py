@@ -65,6 +65,80 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(events[0]["type"], "tool_result")
         self.assertIsNone(agent.load_pending_action(action_id))
 
+    def test_agent_loop_parses_json_string_arguments_and_runs_tool(self):
+        class Fn:
+            def __init__(self, name, arguments):
+                self.name = name
+                self.arguments = arguments
+
+        class Call:
+            def __init__(self, name, arguments):
+                self.function = Fn(name, arguments)
+
+        class Response:
+            def __init__(self, tool_calls):
+                self.tool_calls = tool_calls
+                self.role = "assistant"
+                self.content = ""
+
+        calls = {"n": 0}
+
+        def fake_chat(messages, tools=None):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return Response([Call("list_dir", '{"path": "."}')])
+            return Response(None)
+
+        with (
+            patch.object(agent, "chat_once", side_effect=fake_chat),
+            patch.object(agent, "stream_chat", return_value=iter(["ok"])),
+            patch.object(agent, "execute_tool", return_value=[{"name": "notes.txt"}]) as exe,
+            patch.object(agent, "remember_fact"),
+            patch.object(agent, "add_message"),
+            patch.object(agent, "add_memory"),
+        ):
+            events = list(agent._agent_loop("s", "list files", [{"role": "system", "content": "x"}], agent.LOOPBACK_USER))
+
+        exe.assert_called_once_with("list_dir", {"path": "."})
+        types = [e["type"] for e in events]
+        self.assertIn("tool_call", types)
+        self.assertIn("tool_result", types)
+        self.assertIn("done", types)
+
+    def test_agent_loop_reports_unknown_tool(self):
+        class Fn:
+            name = "explode_pc"
+            arguments = {}
+
+        class Call:
+            function = Fn()
+
+        class Response:
+            def __init__(self, tool_calls):
+                self.tool_calls = tool_calls
+                self.role = "assistant"
+                self.content = ""
+
+        n = {"i": 0}
+
+        def fake_chat(messages, tools=None):
+            n["i"] += 1
+            if n["i"] == 1:
+                return Response([Call()])
+            return Response(None)
+
+        with (
+            patch.object(agent, "chat_once", side_effect=fake_chat),
+            patch.object(agent, "stream_chat", return_value=iter(["sorry"])),
+            patch.object(agent, "add_message"),
+            patch.object(agent, "add_memory"),
+        ):
+            events = list(agent._agent_loop("s", "do bad", [{"role": "system", "content": "x"}], agent.LOOPBACK_USER))
+
+        unknown = [e for e in events if e.get("type") == "tool_result"]
+        self.assertTrue(unknown)
+        self.assertIn("Unknown tool", unknown[0]["result"])
+
 
 if __name__ == "__main__":
     unittest.main()

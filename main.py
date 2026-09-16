@@ -2,7 +2,7 @@ import socket
 
 import uvicorn
 
-from config.settings import PORT
+from config.settings import HOST, PORT
 
 
 def _lan_ip() -> str:
@@ -25,4 +25,4 @@ if __name__ == "__main__":
     print("  LAN access requires a per-user access code (see /auth/me, /auth/users)")
     print("  -> the bootstrap admin's code is the one in .access_code / ACCESS_CODE")
     print("=" * 60)
-    uvicorn.run("api.server:app", host="0.0.0.0", port=PORT, reload=False)
+    uvicorn.run("api.server:app", host=HOST, port=PORT, reload=False)

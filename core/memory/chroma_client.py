@@ -3,6 +3,7 @@ import os
 from config.settings import BASE_DIR
 
 os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
+os.environ.setdefault("CHROMA_TELEMETRY_DISABLED", "1")
 
 _CHROMA_DIR = str(BASE_DIR / "chroma_data")
 _client = None
@@ -16,7 +17,15 @@ def get_client():
     if _client is None:
         import chromadb
 
-        _client = chromadb.PersistentClient(path=_CHROMA_DIR)
+        try:
+            from chromadb.config import Settings
+
+            _client = chromadb.PersistentClient(
+                path=_CHROMA_DIR,
+                settings=Settings(anonymized_telemetry=False),
+            )
+        except Exception:
+            _client = chromadb.PersistentClient(path=_CHROMA_DIR)
     return _client
 
 

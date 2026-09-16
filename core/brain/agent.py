@@ -15,11 +15,13 @@ from core.brain.llm import chat_once, stream_chat
 from core.memory.knowledge import recall_facts, remember_fact
 from core.memory.store import add_message, get_history, list_preferences
 from core.memory.vector_store import add_memory, search_memories
+from tools.arguments import parse_tool_arguments
 from tools.registry import APPROVAL_REQUIRED, INFORMATIONAL_TOOLS, TOOL_SCHEMAS, describe_pending, execute_tool
 
 SYSTEM_PROMPT = BASE_SYSTEM_PROMPT
+TOOL_SCHEMAS_NAMES = {schema["function"]["name"] for schema in TOOL_SCHEMAS}
 
-MAX_TOOL_ITERATIONS = 5
+MAX_TOOL_ITERATIONS = 8
 RECENT_HISTORY_LIMIT = 10  # messages; older context relies on vector recall instead
 MAX_INJECTED_PREFERENCES = 30  # most recent — a sanity cap, not expected to bite in normal use
 
@@ -31,10 +33,6 @@ def handle_message(session_id: str, user_message: str, requester: User | None = 
 
     system_content = SYSTEM_PROMPT
 
-    # Unlike memories/facts below, preferences are injected in FULL and
-    # unconditionally, every turn — they're standing instructions (a
-    # correction, "always"/"never" do X, what to call the user), not
-    # something to use only if relevant to the current message.
     preferences = list_preferences()[-MAX_INJECTED_PREFERENCES:]
     if preferences:
         system_content += (
@@ -73,11 +71,6 @@ def resume_after_approval(action_id: str, approved: bool, approver: User | None 
         yield {"type": "error", "message": "Unknown or already-resolved action_id"}
         return
     if pending["requires_admin"] and not approver.is_admin:
-        # The self-approval enforcement point: a standard user's own
-        # approval-gated request was flagged requires_admin when it was
-        # created (see _agent_loop below), and only an admin (or the person
-        # at the keyboard, who is always the synthetic admin user) may
-        # resolve it — not the original requester approving themselves.
         yield {"type": "error", "message": "This action requires admin approval."}
         return
     remove_pending_action(action_id)
@@ -116,8 +109,18 @@ def _agent_loop(session_id: str, user_message: str, messages: list, requester: U
 
         for call in tool_calls:
             name = call.function.name
-            args = dict(call.function.arguments)
-            call_dict = {"function": {"name": name, "arguments": args}}
+            try:
+                args = parse_tool_arguments(getattr(call.function, "arguments", None))
+            except Exception as e:
+                err = f"Could not parse arguments for {name}: {e}"
+                yield {"type": "tool_result", "tool": name, "result": err}
+                messages.append({"role": "tool", "content": err})
+                continue
+            if name not in TOOL_SCHEMAS_NAMES:
+                err = f"Unknown tool: {name}"
+                yield {"type": "tool_result", "tool": name, "result": err}
+                messages.append({"role": "tool", "content": err})
+                continue
 
             if name in APPROVAL_REQUIRED:
                 action_id = str(uuid.uuid4())
