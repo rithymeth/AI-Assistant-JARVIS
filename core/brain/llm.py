@@ -15,23 +15,34 @@ def _get_client():
 
 
 def stream_chat(messages: list) -> Iterator[str]:
-    for chunk in _get_client().chat(model=MODEL_NAME, messages=messages, stream=True):
+    try:
+        chunks = _get_client().chat(model=MODEL_NAME, messages=messages, stream=True)
+    except Exception as exc:
+        yield f"I couldn't reach Ollama ({exc}). Is it running?"
+        return
+    for chunk in chunks:
         content = chunk.get("message", {}).get("content", "")
         if content:
             yield content
 
 
 def chat_once(messages: list, tools: list | None = None):
-    response = _get_client().chat(model=MODEL_NAME, messages=messages, tools=tools, stream=False)
+    try:
+        response = _get_client().chat(model=MODEL_NAME, messages=messages, tools=tools, stream=False)
+    except Exception as exc:
+        raise RuntimeError(f"Ollama chat failed: {exc}") from exc
     return response.message
 
 
 def describe_image(image_path: str, prompt: str) -> str:
-    response = _get_client().chat(
-        model=VISION_MODEL_NAME,
-        messages=[{"role": "user", "content": prompt, "images": [image_path]}],
-        stream=False,
-    )
+    try:
+        response = _get_client().chat(
+            model=VISION_MODEL_NAME,
+            messages=[{"role": "user", "content": prompt, "images": [image_path]}],
+            stream=False,
+        )
+    except Exception as exc:
+        raise RuntimeError(f"Vision model failed: {exc}") from exc
     return response.message.content
 
 

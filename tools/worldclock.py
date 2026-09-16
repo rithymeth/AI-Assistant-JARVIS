@@ -4,14 +4,27 @@ from zoneinfo import ZoneInfo
 from tools._geo import format_place_name, geocode
 
 
-def get_time_in(location: str) -> dict:
-    """The model has no reliable live clock/DST awareness, and current
-    time-in-a-place isn't something to guess at — geocode the place to its
-    real IANA timezone (Open-Meteo's geocoding response includes it
-    directly, no separate timezone lookup needed) and compute the actual
-    DST-aware local time via Python's stdlib zoneinfo."""
-    if not location or not location.strip():
-        raise ValueError("Need a location to look up the time for")
+def format_local_clock(now: datetime) -> dict:
+    """Portable 12-hour clock strings. Avoid Windows-only %#I / %#d flags."""
+    hour = now.strftime("%I").lstrip("0") or "12"
+    return {
+        "time": f"{hour}:{now.strftime('%M %p')}",
+        "date": f"{now.strftime('%A, %B')} {now.day}",
+        "utc_offset": now.strftime("%z"),
+    }
+
+
+def get_time_in(location: str | None = None) -> dict:
+    """The model has no reliable live clock/DST awareness.
+
+    Omit location to use this machine's local timezone.
+    """
+    if not location or not str(location).strip():
+        now = datetime.now().astimezone()
+        tz_name = now.tzname() or str(now.tzinfo)
+        payload = format_local_clock(now)
+        payload.update({"location": "this machine", "timezone": tz_name})
+        return payload
 
     place = geocode(location.strip())
     tz_name = place.get("timezone")
@@ -19,12 +32,6 @@ def get_time_in(location: str) -> dict:
         raise ValueError(f"Found '{location}' but it has no known timezone")
 
     now = datetime.now(ZoneInfo(tz_name))
-    return {
-        "location": format_place_name(place),
-        "timezone": tz_name,
-        # %#I not %-I — Windows' strftime no-leading-zero flag differs from
-        # Linux/macOS (a real bug caught and fixed once already this session).
-        "time": now.strftime("%#I:%M %p"),
-        "date": now.strftime("%A, %B %#d"),
-        "utc_offset": now.strftime("%z"),
-    }
+    payload = format_local_clock(now)
+    payload.update({"location": format_place_name(place), "timezone": tz_name})
+    return payload

@@ -1,12 +1,21 @@
-from ultralytics import YOLO
+from config.settings import BASE_DIR
 
 _model = None
+
+
+def _weights_path() -> str:
+    local = BASE_DIR / "yolov8n.pt"
+    if local.exists():
+        return str(local)
+    return "yolov8n.pt"
 
 
 def _get_model():
     global _model
     if _model is None:
-        _model = YOLO("yolov8n.pt")
+        from ultralytics import YOLO
+
+        _model = YOLO(_weights_path())
     return _model
 
 
