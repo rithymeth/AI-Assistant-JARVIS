@@ -6,6 +6,9 @@ TIMEOUT_SECONDS = 30
 
 
 def run_command(command: str) -> dict:
+    command = (command or "").strip()
+    if not command:
+        raise ValueError("Command is empty")
     try:
         result = subprocess.run(
             command,

@@ -24,6 +24,11 @@ class RegistryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unknown tool"):
             execute_tool("not_a_real_tool", {})
 
+    def test_get_time_in_allows_missing_location(self):
+        result = execute_tool("get_time_in", {})
+        self.assertEqual(result["location"], "this machine")
+        self.assertIn("time", result)
+
 
 if __name__ == "__main__":
     unittest.main()

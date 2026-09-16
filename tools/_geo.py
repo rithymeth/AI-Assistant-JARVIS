@@ -12,6 +12,9 @@ TIMEOUT_SECONDS = 10
 def geocode(location: str) -> dict:
     """Raises ValueError if nothing matches — callers don't need to
     separately check for an empty result."""
+    location = (location or "").strip()
+    if not location:
+        raise ValueError("Need a place name to look up")
     resp = requests.get(GEOCODE_URL, params={"name": location, "count": 1}, timeout=TIMEOUT_SECONDS)
     resp.raise_for_status()
     results = resp.json().get("results") or []
