@@ -39,6 +39,8 @@ def list_processes() -> list[dict]:
 
 def kill_process(name_or_pid: str) -> str:
     text = str(name_or_pid).strip()
+    if not text:
+        raise ValueError("Need a process name or PID")
     if text.isdigit():
         targets = [p for p in psutil.process_iter(["pid"]) if p.info["pid"] == int(text)]
     else:

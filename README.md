@@ -20,7 +20,7 @@ Internal code and the wake word still use **Javi**. The project name is **JARVIS
 - Python 3.10+
 - [Ollama](https://ollama.com)
 - Microphone (optional webcam)
-- Windows 10/11 is the primary desktop-control target. Linux/macOS now have best-effort backends for open/list windows, volume, shutdown, and Wi-Fi.
+- Windows 10/11 is the primary desktop-control target. Linux/macOS now have best-effort backends for open/list windows, volume, shutdown, Wi-Fi, and screenshots (`grim` / `gnome-screenshot` / `scrot` / `screencapture`).
 
 ## Install
 
@@ -35,6 +35,8 @@ cp .env.example .env   # Windows: copy .env.example .env
 ```
 
 Windows-only packages (`pywin32`, `pycaw`, `pygetwindow`) are skipped automatically on Linux/macOS.
+
+Optional `.env` knobs: `HOST`, `CAMERA_INDEX`, `WEATHER_LOCATION`, `ACCESS_CODE`.
 
 Pull models:
 
