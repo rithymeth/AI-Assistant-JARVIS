@@ -1,4 +1,5 @@
 import ipaddress
+import sys
 import json
 import os
 import sqlite3
@@ -10,7 +11,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from config.settings import BASE_DIR, MODEL_NAME
+from config.settings import BASE_DIR, HOST, MODEL_NAME, VISION_MODEL_NAME
 from core.auth.face_sessions import create_session, verify_session
 from core.auth.users import LOOPBACK_USER, User, generate_code, hash_new_code
 from core.brain.agent import handle_message, list_pending_actions, resume_after_approval
@@ -31,47 +32,12 @@ app = FastAPI(title="Javi")
 
 init_db()
 
-# Requests from the machine itself never need the access code — only
-# non-loopback (LAN) requests are gated, and only for endpoints that
-# actually DO something (/chat drives the agent, which can call tools;
-# /tools/approve executes an approval-gated action) or REVEAL something
-# (/history shows past conversation content). /health and the static UI
-# shell stay open so the page loads and can show its own code-entry prompt.
-#
-# /voice/* (transcribe, speak) stays ungated: standby listening calls
-# /voice/transcribe on every detected sound, gated or not, so leaving it
-# gated meant a stream of 401s from ambient noise alone, each one
-# re-triggering the code prompt (see promptForAccessCode() in app.js).
-# /vision/* IS gated — camera stream/monitor/analyze expose the webcam
-# and screen-adjacent imagery and must not be open on the LAN.
-#
-# RE-ENABLED: multi-user auth (per-user codes + roles, see core/auth/users.py
-# and core/memory/store.py's `users` table) gives the gate something real to
-# attach to — a LAN request now resolves to a specific user (not just a
-# pass/fail against one shared secret), and /auth/* needs that resolution to
-# answer "who am I" / manage accounts, so it's gated too. Loopback is and
-# remains fully trusted regardless of this tuple (see _is_loopback_host below).
 GATED_PREFIXES = ("/chat", "/tools/", "/history/", "/auth/", "/reminders/", "/vision/")
 
-# Exempt from the face-session check below (but NOT from the code check
-# above it) — this is the endpoint a LAN client calls to actually obtain a
-# face-session token, so requiring one already would be a deadlock.
 FACE_VERIFY_PATH = "/auth/face/verify"
 
 
 def _is_loopback_host(host: str | None) -> bool:
-    """Whether `host` (request.client.host) is the machine talking to
-    itself. Deliberately does NOT trust the Host header (what the browser
-    typed) — only the actual TCP peer address, since Host is trivially
-    spoofable by anyone on the LAN and would defeat the whole gate.
-    Uses ipaddress parsing rather than an exact-string set: a real desktop
-    browser hitting literal "localhost" still showed the gate under the
-    old set-based check, because "localhost" can resolve to a loopback
-    address in more than one valid string form (compressed "::1",
-    uncompressed "0:0:0:0:0:0:0:1", IPv4-mapped "::ffff:127.0.0.1") and a
-    fixed set of literals can't anticipate all of them — parsing the
-    address and asking whether it's actually loopback handles every form
-    by construction instead of by enumeration."""
     if not host:
         return False
     if host == "localhost":
@@ -149,7 +115,14 @@ class CreateUserRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "ollama_connected": is_available(), "model": MODEL_NAME}
+    return {
+        "status": "ok",
+        "ollama_connected": is_available(),
+        "model": MODEL_NAME,
+        "vision_model": VISION_MODEL_NAME,
+        "host": HOST,
+        "platform": sys.platform,
+    }
 
 
 @app.get("/history/{session_id}")
