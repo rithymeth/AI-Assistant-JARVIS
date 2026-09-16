@@ -58,6 +58,9 @@ def _matching(title_substring: str) -> list[tuple[str, str]]:
 
 
 def close_app(title_substring: str) -> str:
+    title_substring = (title_substring or "").strip()
+    if not title_substring:
+        raise ValueError("Need a window title to close")
     matches = _matching(title_substring)
     if not matches:
         return f"No open window matches '{title_substring}'"
@@ -68,6 +71,9 @@ def close_app(title_substring: str) -> str:
 
 
 def focus_window(title_substring: str) -> str:
+    title_substring = (title_substring or "").strip()
+    if not title_substring:
+        raise ValueError("Need a window title to focus")
     matches = _matching(title_substring)
     if not matches:
         return f"No open window matches '{title_substring}'"
