@@ -77,22 +77,53 @@ def focus_window(title_substring: str) -> str:
     return f"Focused '{title}'"
 
 
+def screenshot_cli_candidates(path: str) -> list[list[str]]:
+    return [
+        ["grim", path],
+        ["gnome-screenshot", "-f", path],
+        ["scrot", "--overwrite", path],
+        ["screencapture", "-x", path],
+        ["import", "-window", "root", path],
+    ]
+
+
 def take_screenshot() -> str:
     fd, path = tempfile.mkstemp(suffix=".png")
     os.close(fd)
+    errors: list[str] = []
+
     try:
         import mss
 
         with mss.mss() as sct:
             sct.shot(output=path)
-        return path
-    except Exception:
-        pass
+        if os.path.getsize(path) > 0:
+            return path
+    except Exception as exc:
+        errors.append(f"mss: {exc}")
+
     try:
         from PIL import ImageGrab
 
         ImageGrab.grab().save(path)
-        return path
+        if os.path.getsize(path) > 0:
+            return path
     except Exception as exc:
+        errors.append(f"ImageGrab: {exc}")
+
+    for args in screenshot_cli_candidates(path):
+        binary = shutil.which(args[0])
+        if not binary:
+            continue
+        cmd = [binary, *args[1:]]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=8)
+        if result.returncode == 0 and os.path.exists(path) and os.path.getsize(path) > 0:
+            return path
+        errors.append(f"{args[0]}: {result.stderr.strip() or result.returncode}")
+
+    if os.path.exists(path):
         os.remove(path)
-        raise RuntimeError(f"Screenshot failed: {exc}") from exc
+    raise RuntimeError(
+        "Screenshot failed. Install grim, gnome-screenshot, scrot, or ImageMagick. "
+        + "; ".join(errors[-3:])
+    )

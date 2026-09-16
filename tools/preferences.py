@@ -2,8 +2,11 @@ from core.memory.store import add_preference, delete_preference, list_preference
 
 
 def remember_preference(text: str) -> str:
-    pref_id = add_preference(text.strip())
-    return f"Remembered (#{pref_id}): {text.strip()}"
+    text = (text or "").strip()
+    if not text:
+        raise ValueError("Preference text can't be empty")
+    pref_id = add_preference(text)
+    return f"Remembered (#{pref_id}): {text}"
 
 
 def recall_preferences() -> list[dict]:
@@ -12,10 +15,10 @@ def recall_preferences() -> list[dict]:
 
 def forget_preference(text_or_id: str) -> str:
     """Accepts either a numeric preference id, or a substring to match
-    against stored preference text (case-insensitive) — mirrors
-    kill_process's PID-or-name-substring UX so the user doesn't need to
-    know an internal id to say "forget that I said X"."""
+    against stored preference text (case-insensitive)."""
     text = str(text_or_id).strip()
+    if not text:
+        raise ValueError("Need a preference id or some of the text to forget")
     prefs = list_preferences()
 
     if text.isdigit():
