@@ -5,6 +5,27 @@ __pycache__/
 *.db
 .access_code
 
+# Runtime / user data — never commit
+chroma_data/
+*.log
+javi_server.log
+workspace/*
+!workspace/.gitkeep
+
+# Model weights downloaded locally
+yolov8n.pt
+*.pt
+*.onnx
+*.bin
+
 # LoRA training pipeline — large generated model artifacts, never source
 training/.venv-train/
 training/models/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
