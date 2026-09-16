@@ -1,29 +1,15 @@
-from config.settings import BASE_DIR
-
-_model = None
-
-
-def _weights_path() -> str:
-    local = BASE_DIR / "yolov8n.pt"
-    if local.exists():
-        return str(local)
-    return "yolov8n.pt"
-
-
-def _get_model():
-    global _model
-    if _model is None:
-        from ultralytics import YOLO
-
-        _model = YOLO(_weights_path())
-    return _model
+from vision.yolo import get_yolo
 
 
 def detect_objects(image_path: str) -> list[dict]:
-    model = _get_model()
-    results = model(image_path, verbose=False)
+    if not image_path or not str(image_path).strip():
+        raise ValueError("No image path given")
+    model = get_yolo()
+    results = model(str(image_path).strip(), verbose=False)
     detections = []
     for result in results:
+        if result.boxes is None:
+            continue
         for box in result.boxes:
             detections.append(
                 {

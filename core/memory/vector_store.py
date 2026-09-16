@@ -44,6 +44,9 @@ def _embedding_for(text: str) -> list[float]:
 
 
 def add_memory(session_id: str, text: str, memory_type: str = MEMORY_TYPE_CONVERSATION) -> None:
+    text = (text or "").strip()
+    if not text:
+        return
     embedding = _embedding_for(text)
     _collection().add(
         ids=[str(uuid.uuid4())],
@@ -65,6 +68,9 @@ def search_memories(
     k: int = 3,
     memory_type: str = MEMORY_TYPE_CONVERSATION,
 ) -> list[str]:
+    query = (query or "").strip()
+    if not query:
+        return []
     collection = _collection()
     if collection.count() == 0:
         return []
