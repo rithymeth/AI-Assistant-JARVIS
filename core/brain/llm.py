@@ -35,10 +35,13 @@ def chat_once(messages: list, tools: list | None = None):
 
 
 def describe_image(image_path: str, prompt: str) -> str:
+    if not image_path or not str(image_path).strip():
+        raise ValueError("No image path given")
+    prompt = (prompt or "").strip() or "Describe this image briefly."
     try:
         response = _get_client().chat(
             model=VISION_MODEL_NAME,
-            messages=[{"role": "user", "content": prompt, "images": [image_path]}],
+            messages=[{"role": "user", "content": prompt, "images": [str(image_path).strip()]}],
             stream=False,
         )
     except Exception as exc:
