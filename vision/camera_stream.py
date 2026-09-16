@@ -1,15 +1,23 @@
 import threading
 import time
 
-import cv2
-
 from tools.camera import read_frame
 from vision.tracking import track_frame
 
 DEFAULT_FPS = 8.0
+MIN_FPS = 1.0
+MAX_FPS = 15.0
 
 _lock = threading.Lock()
 _latest_detections: list[dict] = []
+
+
+def clamp_fps(fps: float | None) -> float:
+    try:
+        value = float(fps) if fps is not None else DEFAULT_FPS
+    except (TypeError, ValueError):
+        value = DEFAULT_FPS
+    return max(MIN_FPS, min(value, MAX_FPS))
 
 
 def get_latest_detections() -> list[dict]:
@@ -18,11 +26,9 @@ def get_latest_detections() -> list[dict]:
 
 
 def mjpeg_frames(fps: float = DEFAULT_FPS):
-    """Generator of multipart/x-mixed-replace JPEG chunks — one detect+track
-    pass per frame, boxes/labels/IDs burned in. Runs until the client
-    disconnects (FastAPI's StreamingResponse stops pulling from a generator
-    when the connection closes)."""
-    interval = 1.0 / fps
+    import cv2
+
+    interval = 1.0 / clamp_fps(fps)
     while True:
         start = time.monotonic()
         try:
@@ -38,6 +44,6 @@ def mjpeg_frames(fps: float = DEFAULT_FPS):
                     + b"\r\n"
                 )
         except Exception:
-            pass  # transient camera/inference error — skip this frame, keep streaming
+            pass
         elapsed = time.monotonic() - start
         time.sleep(max(0.0, interval - elapsed))
