@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from config.settings import BASE_DIR
 
@@ -11,12 +12,11 @@ _embedder = None
 
 
 def get_client():
-    """Lazy-load the Chroma client so importing the app doesn't immediately
-    pull in heavy ML dependencies during tests or lightweight code paths."""
     global _client
     if _client is None:
         import chromadb
 
+        Path(_CHROMA_DIR).mkdir(parents=True, exist_ok=True)
         try:
             from chromadb.config import Settings
 
@@ -32,7 +32,10 @@ def get_client():
 def get_embedder():
     global _embedder
     if _embedder is None:
-        from sentence_transformers import SentenceTransformer
+        try:
+            from sentence_transformers import SentenceTransformer
 
-        _embedder = SentenceTransformer("all-MiniLM-L6-v2")
+            _embedder = SentenceTransformer("all-MiniLM-L6-v2")
+        except Exception as exc:
+            raise RuntimeError(f"Could not load the local embedder: {exc}") from exc
     return _embedder

@@ -2,15 +2,7 @@ import time
 
 import psutil
 
-# A short interval so cpu_percent() reflects a real (brief) sample rather
-# than the meaningless 0.0% psutil returns on the very first call with no
-# interval given — a real correctness gotcha with this specific API, not
-# a style choice.
 CPU_SAMPLE_SECONDS = 0.3
-
-# Optical drives and similar report fstype "" and hang/error on disk_usage()
-# — skip anything without a real filesystem rather than letting one bad
-# drive break the whole status report.
 _SKIP_PARTITION_OPTS = {"cdrom"}
 
 
@@ -22,7 +14,7 @@ def _disk_usage() -> list[dict]:
         try:
             usage = psutil.disk_usage(part.mountpoint)
         except OSError:
-            continue  # unreadable (e.g. an empty card reader slot) — skip, don't fail the whole report
+            continue
         drives.append(
             {
                 "drive": part.mountpoint,
@@ -48,8 +40,11 @@ def get_system_status() -> dict:
         "uptime_hours": round(uptime_seconds / 3600, 1),
     }
 
-    battery = psutil.sensors_battery()
-    if battery is not None:  # None on desktops with no battery hardware at all
+    try:
+        battery = psutil.sensors_battery()
+    except Exception:
+        battery = None
+    if battery is not None:
         status["battery_percent"] = battery.percent
         status["battery_plugged_in"] = battery.power_plugged
 
