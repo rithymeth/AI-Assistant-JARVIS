@@ -6,6 +6,8 @@ from vision.ocr import extract_text
 
 
 def analyze_image(image_path: str) -> dict:
+    if not image_path or not str(image_path).strip():
+        raise ValueError("No image path given")
     detections = detect_objects(image_path)
     ocr_text = extract_text(image_path)
 

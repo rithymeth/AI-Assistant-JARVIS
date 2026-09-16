@@ -7,6 +7,7 @@ from tools.camera import capture_camera_frame
 
 MONITOR_PROMPT = "Briefly describe what's visible in this webcam frame in one sentence."
 DEFAULT_INTERVAL_S = 15.0
+MIN_INTERVAL_S = 1.0
 
 _lock = threading.Lock()
 _thread: threading.Thread | None = None
@@ -27,7 +28,8 @@ def _loop(interval_s: float) -> None:
             try:
                 desc = describe_image(path, MONITOR_PROMPT)
             finally:
-                os.remove(path)
+                if path and os.path.exists(path):
+                    os.remove(path)
             with _lock:
                 _state["last_description"] = desc
                 _state["last_capture_at"] = datetime.now(timezone.utc).isoformat()
@@ -39,6 +41,9 @@ def _loop(interval_s: float) -> None:
 
 def start_monitor(interval_s: float = DEFAULT_INTERVAL_S) -> dict:
     global _thread
+    interval_s = float(interval_s)
+    if interval_s < MIN_INTERVAL_S:
+        raise ValueError(f"Monitor interval must be at least {MIN_INTERVAL_S} second")
     with _lock:
         if _state["active"]:
             return dict(_state)
