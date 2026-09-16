@@ -12,13 +12,16 @@ def fetch_page(url: str) -> str:
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         raise ValueError("fetch_page only accepts http(s) URLs")
 
-    resp = requests.get(
-        url,
-        timeout=TIMEOUT_SECONDS,
-        headers={"User-Agent": "Mozilla/5.0 (compatible; JaviAssistant/1.0)"},
-        allow_redirects=True,
-    )
-    resp.raise_for_status()
+    try:
+        resp = requests.get(
+            url,
+            timeout=TIMEOUT_SECONDS,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; JaviAssistant/1.0)"},
+            allow_redirects=True,
+        )
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        raise RuntimeError(f"Page fetch failed: {exc}") from exc
     soup = BeautifulSoup(resp.text, "html.parser")
     for tag in soup(["script", "style", "nav", "footer", "header"]):
         tag.decompose()

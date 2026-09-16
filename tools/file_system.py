@@ -8,7 +8,14 @@ WORKSPACE_DIR.mkdir(exist_ok=True)
 MAX_READ_CHARS = 50_000
 
 
+def _clean_path(path: str) -> str:
+    if path is None or not str(path).strip():
+        raise ValueError("Path is required")
+    return str(path).strip()
+
+
 def _resolve(rel_path: str) -> Path:
+    rel_path = _clean_path(rel_path)
     candidate = (WORKSPACE_DIR / rel_path).resolve()
     if not candidate.is_relative_to(WORKSPACE_DIR.resolve()):
         raise ValueError(f"Path '{rel_path}' escapes the workspace sandbox")
@@ -27,13 +34,16 @@ def read_file(path: str) -> str:
 
 def write_file(path: str, content: str) -> str:
     target = _resolve(path)
+    if target == WORKSPACE_DIR.resolve() or target.is_dir():
+        raise ValueError(f"'{path}' is a directory, not a file")
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(content, encoding="utf-8")
-    return f"Wrote {len(content)} chars to {path}"
+    text = "" if content is None else str(content)
+    target.write_text(text, encoding="utf-8")
+    return f"Wrote {len(text)} chars to {path}"
 
 
 def list_dir(path: str = ".") -> list[dict]:
-    target = _resolve(path)
+    target = _resolve(path or ".")
     if not target.is_dir():
         raise NotADirectoryError(f"No such directory: {path}")
     entries = []
@@ -48,16 +58,8 @@ def list_dir(path: str = ".") -> list[dict]:
     return entries
 
 
-# --- Unrestricted variants: real paths anywhere on the machine, not just
-# workspace/. Distinct names and always approval-required (unlike the
-# sandboxed versions above, which are auto-exec specifically because the
-# workspace sandbox makes them low-risk) — reading/writing arbitrary
-# locations (browser profiles, SSH keys, system files) needs a human to
-# actually see and confirm it first, every time. ---
-
-
 def read_any_file(path: str) -> str:
-    target = Path(path).expanduser().resolve()
+    target = Path(_clean_path(path)).expanduser().resolve()
     if not target.is_file():
         raise FileNotFoundError(f"No such file: {path}")
     text = target.read_text(encoding="utf-8", errors="replace")
@@ -67,14 +69,17 @@ def read_any_file(path: str) -> str:
 
 
 def write_any_file(path: str, content: str) -> str:
-    target = Path(path).expanduser().resolve()
+    target = Path(_clean_path(path)).expanduser().resolve()
+    if target.is_dir():
+        raise ValueError(f"'{path}' is a directory, not a file")
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(content, encoding="utf-8")
-    return f"Wrote {len(content)} chars to {target}"
+    text = "" if content is None else str(content)
+    target.write_text(text, encoding="utf-8")
+    return f"Wrote {len(text)} chars to {target}"
 
 
 def list_any_dir(path: str) -> list[dict]:
-    target = Path(path).expanduser().resolve()
+    target = Path(_clean_path(path)).expanduser().resolve()
     if not target.is_dir():
         raise NotADirectoryError(f"No such directory: {path}")
     entries = []
@@ -88,5 +93,5 @@ def list_any_dir(path: str) -> list[dict]:
                 }
             )
         except OSError:
-            continue  # unreadable entry (permissions, broken link) — skip rather than fail the whole listing
+            continue
     return entries

@@ -16,6 +16,12 @@ class FileSystemTests(unittest.TestCase):
         write_file("upgrade_probe.txt", "ok")
         self.assertEqual(read_file("upgrade_probe.txt"), "ok")
 
+    def test_empty_path_rejected(self):
+        with self.assertRaises(ValueError):
+            read_file("   ")
+        with self.assertRaises(ValueError):
+            write_file("", "x")
+
 
 if __name__ == "__main__":
     unittest.main()
