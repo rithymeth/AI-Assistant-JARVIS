@@ -4,8 +4,6 @@ from core.memory.store import cancel_reminder as _cancel_reminder
 from core.memory.store import create_reminder, list_pending_reminders
 from tools.worldclock import format_local_clock
 
-# Small local models are unreliable at absolute date/time arithmetic —
-# the tool takes a relative delay or a bare clock time and does the math here.
 _AT_TIME_FORMATS = ("%H:%M", "%I:%M %p", "%I:%M%p", "%I %p")
 
 
@@ -50,7 +48,10 @@ def list_reminders() -> list[dict]:
 
 
 def cancel_reminder(text_or_id: str) -> str:
-    count = _cancel_reminder(text_or_id)
+    text = str(text_or_id or "").strip()
+    if not text:
+        raise ValueError("Need a reminder id or some of the text to cancel")
+    count = _cancel_reminder(text)
     if count == 0:
         return f"No pending reminder matches '{text_or_id}'"
     return f"Cancelled {count} reminder(s)"
