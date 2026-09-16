@@ -100,8 +100,16 @@ def resume_after_approval(action_id: str, approved: bool, approver: User | None 
 
 def _agent_loop(session_id: str, user_message: str, messages: list, requester: User) -> Iterator[dict]:
     for _ in range(MAX_TOOL_ITERATIONS):
-        response = chat_once(messages, tools=TOOL_SCHEMAS)
-        tool_calls = response.tool_calls
+        try:
+            response = chat_once(messages, tools=TOOL_SCHEMAS)
+        except Exception as e:
+            err = f"I couldn't reach the local model: {e}"
+            yield {"type": "error", "message": err}
+            yield {"type": "token", "content": err}
+            add_message(session_id, "assistant", err)
+            yield {"type": "done"}
+            return
+        tool_calls = getattr(response, "tool_calls", None)
         if not tool_calls:
             break
 
