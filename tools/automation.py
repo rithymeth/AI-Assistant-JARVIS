@@ -10,12 +10,19 @@ def _gui():
 
 
 def click_at(x: int, y: int) -> str:
-    _gui().click(int(x), int(y))
-    return f"Clicked at ({int(x)}, {int(y)})"
+    try:
+        x = int(x)
+        y = int(y)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Click coordinates must be integers") from exc
+    if x < 0 or y < 0:
+        raise ValueError("Click coordinates must be on-screen")
+    _gui().click(x, y)
+    return f"Clicked at ({x}, {y})"
 
 
 def type_text(text: str) -> str:
-    if text is None:
+    if text is None or not str(text):
         raise ValueError("Nothing to type")
     _gui().typewrite(str(text), interval=0.02)
     return f"Typed {len(str(text))} character(s)"
