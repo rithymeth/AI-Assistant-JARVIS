@@ -23,5 +23,5 @@ def geocode(location: str) -> dict:
     return results[0]
 
 
-def format_place_name(place: dict) -> dict | str:
+def format_place_name(place: dict) -> str:
     return ", ".join(p for p in (place.get("name"), place.get("admin1"), place.get("country")) if p)
