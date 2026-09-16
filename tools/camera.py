@@ -2,35 +2,47 @@ import os
 import tempfile
 import threading
 
-import cv2
+from config.settings import CAMERA_INDEX
+from tools._platform import IS_WINDOWS
 
-CAMERA_INDEX = 0
 WARMUP_FRAMES = 3  # many webcams return a dark/stale first frame
 
-# A single persistent capture, opened lazily on first use and kept open
-# rather than opened/closed per call. DirectShow (cv2.CAP_DSHOW) generally
-# only allows one open handle to a given webcam at a time on Windows, and
-# live streaming (vision/camera_stream.py) needs continuous access — so
-# every consumer (on-demand snapshot, background monitor, live stream,
-# object tracking) shares this one handle via the lock-protected
-# read_frame(), instead of each opening/closing its own.
+# CAP_DSHOW = 700, CAP_ANY = 0. Avoid importing cv2 at module load so
+# unit tests can inspect the backend choice without OpenCV installed.
+CAP_DSHOW = 700
+CAP_ANY = 0
+
 _lock = threading.Lock()
-_cap: cv2.VideoCapture | None = None
+_cap = None
 
 
-def _get_capture() -> cv2.VideoCapture:
+def camera_backend() -> int:
+    """DirectShow on Windows; default backend elsewhere (V4L2/AVFoundation)."""
+    return CAP_DSHOW if IS_WINDOWS else CAP_ANY
+
+
+def _open_capture():
+    import cv2
+
+    cap = cv2.VideoCapture(int(CAMERA_INDEX), camera_backend())
+    if not cap.isOpened() and IS_WINDOWS:
+        cap = cv2.VideoCapture(int(CAMERA_INDEX))
+    if not cap.isOpened():
+        raise RuntimeError(f"Could not open camera (index {CAMERA_INDEX})")
+    for _ in range(WARMUP_FRAMES):
+        cap.read()
+    return cap
+
+
+def _get_capture():
     global _cap
     if _cap is None or not _cap.isOpened():
-        _cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
-        if not _cap.isOpened():
-            raise RuntimeError("Could not open camera (index 0)")
-        for _ in range(WARMUP_FRAMES):
-            _cap.read()
+        _cap = _open_capture()
     return _cap
 
 
 def read_frame():
-    """Grab one raw BGR frame (a numpy array) from the shared camera handle."""
+    """Grab one raw BGR frame from the shared camera handle."""
     with _lock:
         cap = _get_capture()
         ok, frame = cap.read()
@@ -41,6 +53,8 @@ def read_frame():
 
 def capture_camera_frame() -> str:
     """Grab one frame and write it to a temp JPEG, returning the path."""
+    import cv2
+
     frame = read_frame()
     fd, path = tempfile.mkstemp(suffix=".jpg")
     os.close(fd)
