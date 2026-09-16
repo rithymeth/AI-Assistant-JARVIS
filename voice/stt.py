@@ -15,6 +15,9 @@ def _get_model():
 
 
 def transcribe(audio_path: str) -> str:
+    if not audio_path:
+        raise ValueError("No audio path given")
     model = _get_model()
     segments, _info = model.transcribe(audio_path)
-    return " ".join(segment.text.strip() for segment in segments).strip()
+    text = " ".join(segment.text.strip() for segment in segments).strip()
+    return text or "(no speech detected)"

@@ -1,20 +1,29 @@
-import pyautogui
+"""Desktop input automation. pyautogui is imported lazily so headless tests
+can load the package without a display."""
 
-# Moving the mouse to a screen corner aborts an in-flight automation call —
-# a physical kill-switch, kept on unconditionally.
-pyautogui.FAILSAFE = True
+
+def _gui():
+    import pyautogui
+
+    pyautogui.FAILSAFE = True
+    return pyautogui
 
 
 def click_at(x: int, y: int) -> str:
-    pyautogui.click(x, y)
-    return f"Clicked at ({x}, {y})"
+    _gui().click(int(x), int(y))
+    return f"Clicked at ({int(x)}, {int(y)})"
 
 
 def type_text(text: str) -> str:
-    pyautogui.typewrite(text, interval=0.02)
-    return f"Typed {len(text)} character(s)"
+    if text is None:
+        raise ValueError("Nothing to type")
+    _gui().typewrite(str(text), interval=0.02)
+    return f"Typed {len(str(text))} character(s)"
 
 
 def press_key(key: str) -> str:
-    pyautogui.press(key)
+    key = (key or "").strip()
+    if not key:
+        raise ValueError("Key name is empty")
+    _gui().press(key)
     return f"Pressed '{key}'"
