@@ -15,6 +15,22 @@ def _run(args: list[str]) -> str:
     return result.stdout.strip()
 
 
+def brightness_cli_candidates(level: int) -> list[list[str]]:
+    return [
+        ["brightnessctl", "set", f"{level}%"],
+        ["xbacklight", "-set", str(level)],
+    ]
+
+
+def lock_cli_candidates() -> list[list[str]]:
+    return [
+        ["loginctl", "lock-session"],
+        ["xdg-screensaver", "lock"],
+        ["gnome-screensaver-command", "-l"],
+        ["dm-tool", "lock"],
+    ]
+
+
 def set_volume(level: int) -> str:
     level = max(0, min(100, int(level)))
     if shutil.which("pactl"):
@@ -39,17 +55,42 @@ def mute_volume(mute: bool) -> str:
 
 def set_brightness(level: int) -> str:
     level = max(0, min(100, int(level)))
-    import screen_brightness_control as sbc
+    errors: list[str] = []
+    for args in brightness_cli_candidates(level):
+        if not shutil.which(args[0]):
+            continue
+        try:
+            _run(args)
+            return f"Brightness set to {level}%"
+        except Exception as exc:
+            errors.append(f"{args[0]}: {exc}")
+    try:
+        import screen_brightness_control as sbc
 
-    sbc.set_brightness(level)
-    return f"Brightness set to {level}%"
+        sbc.set_brightness(level)
+        return f"Brightness set to {level}%"
+    except Exception as exc:
+        errors.append(f"sbc: {exc}")
+    raise RuntimeError(
+        "No brightness tool worked. Install brightnessctl or xbacklight. "
+        + "; ".join(errors[-3:])
+    )
 
 
 def lock_screen() -> str:
-    if shutil.which("loginctl"):
-        _run(["loginctl", "lock-session"])
-        return "Locked the screen"
-    raise RuntimeError("lock_screen needs loginctl on this OS")
+    errors: list[str] = []
+    for args in lock_cli_candidates():
+        if not shutil.which(args[0]):
+            continue
+        try:
+            _run(args)
+            return "Locked the screen"
+        except Exception as exc:
+            errors.append(f"{args[0]}: {exc}")
+    raise RuntimeError(
+        "lock_screen needs loginctl, xdg-screensaver, gnome-screensaver-command, or dm-tool"
+        + (f" ({'; '.join(errors[-2:])})" if errors else "")
+    )
 
 
 def sleep_pc() -> str:
