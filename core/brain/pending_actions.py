@@ -57,6 +57,9 @@ def create_pending_action(
     requester: User,
     requires_admin: bool,
 ) -> None:
+    action_id = (action_id or "").strip()
+    if not action_id:
+        raise ValueError("action_id is required")
     upsert_pending_action(
         action_id=action_id,
         session_id=session_id,
@@ -70,6 +73,9 @@ def create_pending_action(
 
 
 def load_pending_action(action_id: str) -> dict | None:
+    action_id = (action_id or "").strip()
+    if not action_id:
+        return None
     pending = get_pending_action(action_id)
     if pending is None:
         return None
@@ -83,6 +89,9 @@ def load_pending_action(action_id: str) -> dict | None:
 
 
 def remove_pending_action(action_id: str) -> bool:
+    action_id = (action_id or "").strip()
+    if not action_id:
+        return False
     return delete_pending_action(action_id)
 
 
