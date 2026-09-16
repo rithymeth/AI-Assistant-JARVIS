@@ -1,13 +1,12 @@
 import ctypes
 import subprocess
 
-import screen_brightness_control as sbc
-from pycaw.pycaw import AudioUtilities
-
 SHUTDOWN_COMMAND_TIMEOUT_SECONDS = 10
 
 
 def _volume_interface():
+    from pycaw.pycaw import AudioUtilities
+
     return AudioUtilities.GetSpeakers().EndpointVolume
 
 
@@ -23,6 +22,8 @@ def mute_volume(mute: bool) -> str:
 
 
 def set_brightness(level: int) -> str:
+    import screen_brightness_control as sbc
+
     level = max(0, min(100, int(level)))
     sbc.set_brightness(level)
     return f"Brightness set to {level}%"
@@ -48,12 +49,14 @@ def _run_power_command(args: list[str]) -> str:
 
 
 def shutdown_pc(delay_seconds: int = 30) -> str:
-    _run_power_command(["shutdown", "/s", "/t", str(max(0, int(delay_seconds)))])
+    delay_seconds = max(0, int(delay_seconds))
+    _run_power_command(["shutdown", "/s", "/t", str(delay_seconds)])
     return f"Shutting down in {delay_seconds}s — say 'cancel shutdown' to stop it"
 
 
 def restart_pc(delay_seconds: int = 30) -> str:
-    _run_power_command(["shutdown", "/r", "/t", str(max(0, int(delay_seconds)))])
+    delay_seconds = max(0, int(delay_seconds))
+    _run_power_command(["shutdown", "/r", "/t", str(delay_seconds)])
     return f"Restarting in {delay_seconds}s — say 'cancel shutdown' to stop it"
 
 
@@ -73,4 +76,3 @@ def toggle_wifi(enabled: bool) -> str:
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "netsh failed")
     return f"WiFi {state}"
-
