@@ -19,12 +19,11 @@ def list_notes(list_name: str | None = None) -> list[dict]:
 
 
 def remove_note(text_or_id: str, list_name: str | None = None) -> str:
-    """Same substring-or-id UX as forget_preference/cancel_reminder. If
-    list_name is omitted, matches by text across every list — fine for a
-    single household's small lists, where the same item rarely appears on
-    two different lists at once."""
+    text = str(text_or_id or "").strip()
+    if not text:
+        raise ValueError("Need a note id or some of the text to remove")
     normalized_list = list_name.strip().lower() if list_name else None
-    count = _remove_note(text_or_id, normalized_list)
+    count = _remove_note(text, normalized_list)
     if count == 0:
         return f"No note matches '{text_or_id}'" + (f" on your {normalized_list} list" if normalized_list else "")
     return f"Removed {count} item(s) matching '{text_or_id}'"

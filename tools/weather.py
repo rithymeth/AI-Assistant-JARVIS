@@ -6,8 +6,6 @@ from tools._geo import format_place_name, geocode
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 TIMEOUT_SECONDS = 10
 
-# WMO weather interpretation codes, as used by Open-Meteo (a free,
-# no-API-key-required weather service — no signup friction for the user).
 _WEATHER_CODES = {
     0: "clear sky", 1: "mainly clear", 2: "partly cloudy", 3: "overcast",
     45: "fog", 48: "depositing rime fog",
@@ -25,6 +23,24 @@ _WEATHER_CODES = {
 
 def _describe_code(code: int) -> str:
     return _WEATHER_CODES.get(code, f"unknown conditions (code {code})")
+
+
+def _require_forecast_fields(data: dict) -> tuple[dict, dict]:
+    current = data.get("current") or {}
+    daily = data.get("daily") or {}
+    needed_current = (
+        "weather_code",
+        "temperature_2m",
+        "apparent_temperature",
+        "relative_humidity_2m",
+        "wind_speed_10m",
+    )
+    needed_daily = ("temperature_2m_max", "temperature_2m_min", "precipitation_probability_max")
+    if any(key not in current for key in needed_current) or any(key not in daily for key in needed_daily):
+        raise RuntimeError("Weather service returned an incomplete forecast")
+    if not daily["temperature_2m_max"] or not daily["temperature_2m_min"]:
+        raise RuntimeError("Weather service returned an incomplete forecast")
+    return current, daily
 
 
 def get_weather(location: str | None = None) -> dict:
@@ -56,8 +72,7 @@ def get_weather(location: str | None = None) -> dict:
         data = resp.json()
     except requests.RequestException as exc:
         raise RuntimeError(f"Weather lookup failed: {exc}") from exc
-    current = data["current"]
-    daily = data["daily"]
+    current, daily = _require_forecast_fields(data)
 
     return {
         "location": format_place_name(place),
