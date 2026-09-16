@@ -42,6 +42,14 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Things you've looked up and learned", system_message["content"])
         self.assertIn("Canberra is the capital", system_message["content"])
 
+    def test_empty_message_does_not_call_model(self):
+        with patch.object(agent, "_agent_loop") as loop, patch.object(agent, "add_message") as add:
+            events = list(agent.handle_message("session-1", "   "))
+        loop.assert_not_called()
+        add.assert_not_called()
+        self.assertEqual(events[0]["type"], "error")
+        self.assertEqual(events[1]["type"], "done")
+
     def test_resume_after_approval_uses_persisted_action_and_removes_it(self):
         requester = agent.User(id=7, username="sam", role="admin")
         with (
