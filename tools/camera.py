@@ -5,10 +5,7 @@ import threading
 from config.settings import CAMERA_INDEX
 from tools._platform import IS_WINDOWS
 
-WARMUP_FRAMES = 3  # many webcams return a dark/stale first frame
-
-# CAP_DSHOW = 700, CAP_ANY = 0. Avoid importing cv2 at module load so
-# unit tests can inspect the backend choice without OpenCV installed.
+WARMUP_FRAMES = 3
 CAP_DSHOW = 700
 CAP_ANY = 0
 
@@ -17,7 +14,6 @@ _cap = None
 
 
 def camera_backend() -> int:
-    """DirectShow on Windows; default backend elsewhere (V4L2/AVFoundation)."""
     return CAP_DSHOW if IS_WINDOWS else CAP_ANY
 
 
@@ -42,23 +38,24 @@ def _get_capture():
 
 
 def read_frame():
-    """Grab one raw BGR frame from the shared camera handle."""
     with _lock:
         cap = _get_capture()
         ok, frame = cap.read()
-        if not ok:
+        if not ok or frame is None:
             raise RuntimeError("Failed to capture a frame from the camera")
         return frame
 
 
 def capture_camera_frame() -> str:
-    """Grab one frame and write it to a temp JPEG, returning the path."""
     import cv2
 
     frame = read_frame()
     fd, path = tempfile.mkstemp(suffix=".jpg")
     os.close(fd)
-    cv2.imwrite(path, frame)
+    if not cv2.imwrite(path, frame) or not os.path.exists(path) or os.path.getsize(path) == 0:
+        if os.path.exists(path):
+            os.remove(path)
+        raise RuntimeError("Camera captured an empty frame")
     return path
 
 
